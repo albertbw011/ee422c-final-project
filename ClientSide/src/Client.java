@@ -9,13 +9,11 @@ import java.net.Socket;
 import java.util.*;
 
 public class Client extends Application {
-
-    private static PrintWriter printWriter;
-    private static BufferedReader bufferedReader;
+    private static ObjectInputStream inputStream;
+    private static ObjectOutputStream outputStream;
     private static Socket socket;
-    private static int portNumber;
     private List<CustomerInstance> customerHistory;
-    private List<Item> auctionItemList;
+    private static List<Item> auctionItemList;
 
     public Client() {
         this.customerHistory = new ArrayList<>();
@@ -36,42 +34,80 @@ public class Client extends Application {
     }
 
     public static Scene loginScene(Stage primaryStage) throws IOException {
+        if (socket != null && !socket.isClosed())
+            socket.close();
         primaryStage.setTitle("Login to eHills");
         primaryStage.setResizable(false);
-        Parent login = FXMLLoader.load(Client.class.getResource("Login.fxml"));
-        Controller.setPrimaryStage(primaryStage);
+        Parent login = FXMLLoader.load(Objects.requireNonNull(Client.class.getResource("Login.fxml")));
+        LogInController.setPrimaryStage(primaryStage);
         return new Scene(login, 1300, 800);
     }
 
     public static Scene auctionScene(Stage primaryStage) throws IOException {
         primaryStage.setTitle("eHills");
         primaryStage.setResizable(true);
-        Parent auction = FXMLLoader.load(Client.class.getResource("Auction.fxml"));
-        Controller.setPrimaryStage(primaryStage);
+        Parent auction = FXMLLoader.load(Objects.requireNonNull(Client.class.getResource("Auction.fxml")));
+        ClientController.setPrimaryStage(primaryStage);
+        setUpConnection();
         return new Scene(auction, 1600, 900);
     }
 
     public static void setUpConnection() {
-        portNumber = 4444;
         try {
-            socket = new Socket("localhost", portNumber);
-            bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+            socket = new Socket("localhost", 4444);
+            outputStream = new ObjectOutputStream(socket.getOutputStream());
+            inputStream = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
             System.out.println("Unable to connect");
         }
     }
 
-    private static void sendToServer(String input) {
-        printWriter.println(input);
-        printWriter.flush();
+    private static void sendToServer(Object input) throws IOException {
+        outputStream.reset();
+        outputStream.writeObject(input);
+        outputStream.flush();
     }
 
-    private static void processRequest(String command) {
+    public void readFromServer() throws IOException {
+        Thread readerThread = new Thread (() -> {
+            try {
+                while (true) {
+                    Message input = (Message) inputStream.readObject();
+                    processRequest(input);
+                }
+            } catch (ClassNotFoundException | IOException e) {
+                e.printStackTrace();
+            }
+        });
 
+        Thread writerThread = new Thread (() -> {
+            while (true) {
+
+            }
+        });
+
+        readerThread.start();
+        writerThread.start();
     }
 
-    public List<Item> getAuctionItemList() {
+    /**
+     * Possible command list:
+     * addItems + numItems : adds numItems auction items to the auction items list
+     * @param input
+     */
+    private void processRequest(Message input) {
+        String command = input.getCommand();
+        switch (command) {
+            case "addItem":
+                if (input.getAuctionItem() != null) {
+                    Item auctionItem = input.getAuctionItem();
+                    auctionItemList.add(auctionItem);
+                }
+                break;
+        }
+    }
+
+    public static List<Item> getAuctionItemList() {
         return auctionItemList;
     }
 

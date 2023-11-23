@@ -1,12 +1,9 @@
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
 import java.io.IOException;
 
-public class Controller extends Client {
+public class LogInController extends Client {
 
     private static Stage primaryStage;
     @FXML
@@ -16,18 +13,23 @@ public class Controller extends Client {
     @FXML
     private Label errorLabel;
     @FXML
-    private ScrollPane itemListPane;
+    private Button loginButton;
     @FXML
-    private VBox itemListPaneVBox;
-    private String username;
-    private String password;
+    private Button loginGuestButton;
+
+    private static String username;
+    private static String password;
 
     public static void setPrimaryStage(Stage s) {
         primaryStage = s;
     }
 
+    public static String getUsername() {
+        return username;
+    }
+
     @FXML
-    public void loginButtonAction(ActionEvent event) {
+    public void loginButtonAction() {
         username = usernameTextField.getText();
         password = passwordTextField.getText();
 
@@ -40,7 +42,7 @@ public class Controller extends Client {
         } else {
             try {
                 primaryStage.setScene(auctionScene(primaryStage));
-                setUpItems();
+                readFromServer();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -48,7 +50,27 @@ public class Controller extends Client {
     }
 
     @FXML
-    public void guestButtonAction(ActionEvent event) {
+    public void loginButtonMouseHover() {
+        loginButton.setStyle("-fx-background-color: #b5b5b5; -fx-border-color: BLACK; -fx-border-radius: 5; -fx-background-radius: 5");
+    }
+
+    @FXML
+    public void guestButtonMouseHover() {
+        loginGuestButton.setStyle("-fx-background-color: #b5b5b5; -fx-border-color: BLACK; -fx-border-radius: 5; -fx-background-radius: 5");
+    }
+
+    @FXML
+    public void loginButtonMouseExit() {
+        loginButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
+    }
+
+    @FXML
+    public void guestButtonMouseExit() {
+        loginGuestButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
+    }
+
+    @FXML
+    public void guestButtonAction() {
         username = usernameTextField.getText();
         password = passwordTextField.getText();
 
@@ -57,26 +79,10 @@ public class Controller extends Client {
         } else {
             try {
                 primaryStage.setScene(auctionScene(primaryStage));
-                setUpItems();
+                readFromServer();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-    }
-
-    @FXML
-    public void logOutAction(ActionEvent event) {
-        try {
-            primaryStage.setScene(loginScene(primaryStage));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void setUpItems() {
-        itemListPane.setContent(itemListPaneVBox);
-        for (Item i : getAuctionItemList()) {
-            itemListPaneVBox.getChildren().add(i.display());
         }
     }
 }

@@ -1,34 +1,55 @@
 import java.io.*;
 import java.net.Socket;
+import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
 
-public class ClientThread extends Server implements Runnable{
+public class ClientThread implements Runnable, Observer {
     private Socket socket;
-    private BufferedReader bufferedReader;
-    private PrintWriter printWriter;
+    private Server server;
+    private ObjectInputStream inputStream;
+    private ObjectOutputStream outputStream;
+    private boolean updateItems;
+    private List<Item> auctionItemList;
 
-    public ClientThread(Socket socket) {
+    public ClientThread(Server server, Socket socket) throws IOException {
+        this.server = server;
         this.socket = socket;
+        this.updateItems = true;
+        this.auctionItemList = server.getAuctionItemList();
+        outputStream = new ObjectOutputStream(socket.getOutputStream());
+        inputStream = new ObjectInputStream(socket.getInputStream());
     }
     public void run() {
         try {
-            bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            printWriter = new PrintWriter(socket.getOutputStream());
-
+            System.out.println("ClientThread running");
+            for (Item item : auctionItemList) {
+                Message send = new Message("addItem", item);
+                sendToClient(send);
+            }
             while (!socket.isClosed()) {
-                String input = bufferedReader.readLine();
-                if (input != null) {
-                    for (ClientThread client : clients) {
-                        client.getWriter().write(input);
-                    }
-                }
+                Message receivedMessage = (Message) inputStream.readObject();
+                server.processRequest(receivedMessage);
             }
 
+        } catch (ClassNotFoundException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void sendToClient(Object o) {
+        try {
+            System.out.println("Sending to client: " + o);
+            this.outputStream.reset();
+            this.outputStream.writeObject(o);
+            this.outputStream.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public PrintWriter getWriter() {
-        return printWriter;
+    @Override
+    public void update(Observable o, Object arg) {
+        this.sendToClient((String) arg);
     }
 }
