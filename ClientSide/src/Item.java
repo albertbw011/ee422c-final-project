@@ -1,14 +1,22 @@
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.image.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.*;
 import java.io.Serializable;
+
+import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.util.converter.DoubleStringConverter;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,62 +57,59 @@ public class Item implements Serializable {
         VBox rightBox = new VBox(5);
         ImageView imageView = new ImageView(image);
 
+        // Item Name
         Label itemName = new Label(name);
         itemName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 25));
 
+        // Current Bid
         Label currentItemPriceLabel = new Label("Current Bid: $" + currentBid);
         currentItemPriceLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 15));
 
+        // Buy Now Price
         Label buyNowLabel = new Label("Buy Now: $" + buyNowPrice);
         buyNowLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 15));
 
-        Label timeRemainingLabel = new Label(displayTime(timeRemaining));
+        // Time Remaining in hh:mm:ss
+        Label timeRemainingLabel = new Label("Ends in " + displayTime(timeRemaining));
         timeRemainingLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         timeRemainingLabel.setTextFill(Color.RED);
         this.timeline = new Timeline(new KeyFrame(Duration.seconds(1.0), event -> updateTimer(timeRemainingLabel)));
         this.timeline.setCycleCount(Timeline.INDEFINITE);
         this.timeline.play();
 
+        // Description
         Label descriptionLabel = new Label(description);
         descriptionLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 12));
         descriptionBox.getChildren().add(descriptionLabel);
 
+        // Place Bid Button
         Button placeBidButton = new Button("Place Bid");
         placeBidButton.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         placeBidButton.setStyle("-fx-background-color: #42a1f5; -fx-text-fill: white; -fx-border-radius: 10; -fx-padding: 10 20;");
-        placeBidButton.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
 
-            }
-        });
-
+        // Buy Now Button
         Button buyNowButton = new Button("Buy Now");
         buyNowButton.setStyle("-fx-background-color: #3867c7; -fx-text-fill: white; -fx-border-radius: 10; -fx-padding: 10 20;");
         buyNowButton.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
-        buyNowButton.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
+        buyNowButton.setOnAction(event -> {
 
-            }
         });
 
+        // Bid History Button
         Button bidHistoryButton = new Button("Bid History");
         bidHistoryButton.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         bidHistoryButton.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-border-radius: 10; -fx-padding: 10 20;");
-        bidHistoryButton.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
+        bidHistoryButton.setOnAction(event -> {
 
-            }
         });
 
+        // Combine all the containers together
         leftBox.setPrefWidth(400);
         rightBox.setPrefWidth(400);
         descriptionBox.setPrefWidth(400);
-        leftBox.getChildren().addAll(itemName, imageView, currentItemPriceLabel, buyNowLabel, timeRemainingLabel);
+        leftBox.getChildren().addAll(itemName, currentItemPriceLabel, buyNowLabel, timeRemainingLabel);
         rightBox.getChildren().addAll(placeBidButton, buyNowButton, bidHistoryButton);
-        hBox.getChildren().addAll(leftBox, descriptionBox, rightBox);
+        hBox.getChildren().addAll(imageView, leftBox, descriptionBox, rightBox);
         return hBox;
     }
 
