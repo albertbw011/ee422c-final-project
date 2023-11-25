@@ -67,13 +67,19 @@ public class Server extends Observable {
 
     public synchronized void processRequest(Message request) {
         String command = request.command;
+        Item auctionItem = request.auctionItem;
+        Message sendMessage;
         switch (command) {
             case "buyNow":
-                Item auctionItem = request.auctionItem;
                 auctionItem.timeRemaining = 0;
-                Message newMessage = new Message("itemPurchased", auctionItem, auctionItem.buyNowPrice);
+                sendMessage = new Message("itemPurchased", auctionItem, auctionItem.buyNowPrice);
                 for (ClientThread client : clients)
-                    client.sendToClient(newMessage);
+                    client.sendToClient(sendMessage);
+                break;
+            case "updateBid":
+                sendMessage = new Message("updateItemBid", auctionItem, auctionItem.currentBid);
+                for (ClientThread client : clients)
+                    client.sendToClient(sendMessage);
                 break;
         }
     }

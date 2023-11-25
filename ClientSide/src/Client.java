@@ -1,13 +1,12 @@
 import javafx.application.Application;
-import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
+import javafx.application.Platform;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
@@ -70,7 +69,7 @@ public class Client extends Application {
     public static Scene confirmScene(Stage primaryStage) throws IOException {
         primaryStage.setResizable(false);
         Parent confirm = FXMLLoader.load(Objects.requireNonNull(Client.class.getResource("Confirm.fxml")));
-        return new Scene(confirm, 500, 200);
+        return new Scene(confirm, 500, 150);
     }
 
     public static void setUpConnection() {
@@ -119,26 +118,32 @@ public class Client extends Application {
      */
     private void processRequest(Message input) {
         String command = input.getCommand();
+        Item auctionItem = Objects.requireNonNull(input.getAuctionItem());
+        ClientController controller = auctionLoader.getController();
+        VBox clientVBox = controller.getItemListPaneVBox();
         switch (command) {
             case "addItem":
-                if (input.getAuctionItem() != null) {
-                    Item auctionItem = input.getAuctionItem();
-                    auctionItem.itemID = itemID;
-                    itemID++;
-                    auctionItemList.add(auctionItem);
-                }
+                auctionItem.itemID = itemID;
+                itemID++;
+                auctionItemList.add(auctionItem);
                 break;
             case "itemPurchased":
-                if (input.getAuctionItem() != null) {
-                    Item auctionItem = input.getAuctionItem();
-                    ClientController controller = auctionLoader.getController();
-                    VBox clientVBox = controller.getItemListPaneVBox();
-                    Node nodeToRemove = clientVBox.lookup(auctionItem.name);
-                    if (nodeToRemove != null) {
-                        clientVBox.getChildren().remove(nodeToRemove);
-                        clientVBox.getChildren().add(auctionItem.display());
-                    }
-                }
+                clientVBox.getChildren().stream()
+                        .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
+                        .map(node -> (HBox) node)
+                        .findFirst().ifPresent(hBoxToRemove -> Platform.runLater(() -> {
+                            clientVBox.getChildren().remove(hBoxToRemove);
+                            clientVBox.getChildren().add(auctionItem.display());
+                        }));
+                break;
+            case "updateItemBid":
+                clientVBox.getChildren().stream()
+                        .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
+                        .map(node -> (HBox) node)
+                        .findFirst().ifPresent(hBox -> Platform.runLater(() -> {
+                            Label editLabel = (Label) hBox.lookup("#currentItemPriceLabel");
+                            editLabel.setText(String.format("Current Bid: $%.2f", auctionItem.currentBid));
+                        }));
                 break;
         }
     }
@@ -147,7 +152,16 @@ public class Client extends Application {
         synchronized (item) {
             if (bidAmount >= item.buyNowPrice) {
                 item.buyer = username;
+                item.soldPrice = item.buyNowPrice;
                 Message sendMessage = new Message("buyNow", item);
+                try {
+                    sendToServer(sendMessage);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                item.currentBid = bidAmount;
+                Message sendMessage = new Message("updateBid", item);
                 try {
                     sendToServer(sendMessage);
                 } catch (IOException e) {

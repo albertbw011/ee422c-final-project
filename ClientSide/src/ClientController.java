@@ -24,6 +24,7 @@ public class ClientController extends Client implements Initializable {
     private Button exitButton;
     @FXML
     private Text title;
+    private boolean updateList;
 
     public static void setPrimaryStage(Stage s) {
         primaryStage = s;
@@ -47,8 +48,6 @@ public class ClientController extends Client implements Initializable {
         for (Item i : Client.getAuctionItemList()) {
             if (!i.displayed)
                 itemListPaneVBox.getChildren().add(i.display());
-            if (i.sold)
-                itemListPaneVBox.getChildren().remove(i.display());
         }
     }
 

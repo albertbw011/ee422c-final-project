@@ -28,7 +28,6 @@ public class Item extends Client implements Serializable {
     List<BidInstance> bidHistory;
     boolean sold;
     Image image;
-    private Timeline timeline;
     boolean displayed;
 
 
@@ -66,21 +65,21 @@ public class Item extends Client implements Serializable {
         // Current Bid
         Label currentItemPriceLabel = new Label(String.format("Current Bid: $%.2f", currentBid));
         currentItemPriceLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 18));
+        currentItemPriceLabel.setId("currentItemPriceLabel");
 
         // Buy Now Price
         Label buyNowLabel = new Label(String.format("Buy Now: $%.2f", buyNowPrice));
         buyNowLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 18));
 
         // Time Remaining in hh:mm:ss
-        Label timeRemainingLabel = new Label("Ends in " + displayTime(timeRemaining));
+        Label timeRemainingLabel = new Label(displayTime(timeRemaining) + " remaining");
         timeRemainingLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         timeRemainingLabel.setTextFill(Color.RED);
         Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(1.0), event -> {
             if (timeRemaining > 0) {
-                timeRemainingLabel.setText("Ends in " + displayTime(timeRemaining));
+                timeRemainingLabel.setText(displayTime(timeRemaining) + " remaining");
                 timeRemaining--;
             } else {
-                this.timeline.stop();
                 timeRemainingLabel.setText("Ended");
             }
         }));
@@ -119,6 +118,7 @@ public class Item extends Client implements Serializable {
             Stage newStage = new Stage();
             try {
                 ConfirmController.setStage(newStage);
+                ConfirmController.setItem(this);
                 newStage.setScene(confirmScene(newStage));
                 newStage.show();
             } catch (IOException e) {
@@ -143,7 +143,7 @@ public class Item extends Client implements Serializable {
         totalBidsLabel.setUnderline(true);
 
         // Combine all the containers together
-        leftBox.setPrefWidth(200);
+        leftBox.setPrefWidth(400);
         rightBox.setPrefWidth(400);
         descriptionBox.setPrefWidth(600);
         if (!this.sold && this.timeRemaining > 0) {
@@ -170,10 +170,6 @@ public class Item extends Client implements Serializable {
     @Override
     public String toString() {
         return "name: " + name + " startingBid: " + startingBid + " buyNowPrice: " + buyNowPrice;
-    }
-
-    public boolean equals(Item other) {
-        return this.itemID == other.itemID;
     }
 
     class BidInstance {

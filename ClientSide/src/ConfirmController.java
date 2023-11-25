@@ -2,8 +2,9 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
 
-public class ConfirmController {
+public class ConfirmController extends Client {
     private static Stage stage;
+    private static Item item;
     @FXML
     private Button yesButton;
     @FXML
@@ -11,6 +12,10 @@ public class ConfirmController {
 
     public static void setStage(Stage s) {
         stage = s;
+    }
+
+    public static void setItem(Item i) {
+        item = i;
     }
     @FXML
     private void yesButtonMouseHover() {
@@ -24,6 +29,7 @@ public class ConfirmController {
 
     @FXML
     private void yesButtonAction() {
+        sendBid(item.buyNowPrice, item);
         stage.close();
     }
 

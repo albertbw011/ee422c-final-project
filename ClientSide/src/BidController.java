@@ -40,7 +40,7 @@ public class BidController extends Client implements Initializable {
         bidButton1.setText("Bid $" + bidAmount1);
         bidButton2.setText("Bid $" + bidAmount2);
         bidButton3.setText("Bid $" + bidAmount3);
-        enterOrMoreLabel.setText(String.format("Enter $%.2f or more.", item.currentBid));
+        enterOrMoreLabel.setText(String.format("Enter $%.2f or more.", item.currentBid+.01));
     }
 
     public static void setStage(Stage s) {
@@ -54,6 +54,7 @@ public class BidController extends Client implements Initializable {
     @FXML
     public void bidButton1Action() {
         sendBid(bidAmount1, item);
+        stage.close();
     }
 
     @FXML
@@ -69,6 +70,7 @@ public class BidController extends Client implements Initializable {
     @FXML
     public void bidButton2Action() {
         sendBid(bidAmount2, item);
+        stage.close();
     }
 
     @FXML
@@ -84,6 +86,7 @@ public class BidController extends Client implements Initializable {
     @FXML
     public void bidButton3Action() {
         sendBid(bidAmount3, item);
+        stage.close();
     }
 
     @FXML
@@ -100,7 +103,7 @@ public class BidController extends Client implements Initializable {
     public void mainBidButtonAction() {
         try {
             double getAmount = Double.parseDouble(amountField.getText());
-            if (getAmount < item.currentBid) {
+            if (getAmount <= item.currentBid) {
                 errorLabel.setText("Bid must be greater than current price");
                 amountField.clear();
             } else {
