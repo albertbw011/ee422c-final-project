@@ -4,7 +4,6 @@ import javafx.stage.Stage;
 import java.io.IOException;
 
 public class LogInController extends Client {
-
     private static Stage primaryStage;
     @FXML
     private TextField usernameTextField;
@@ -16,16 +15,10 @@ public class LogInController extends Client {
     private Button loginButton;
     @FXML
     private Button loginGuestButton;
-
-    private static String username;
     private static String password;
 
     public static void setPrimaryStage(Stage s) {
         primaryStage = s;
-    }
-
-    public static String getUsername() {
-        return username;
     }
 
     @FXML

@@ -9,7 +9,7 @@ import org.bson.Document;
 public class Server extends Observable {
     private static ServerSocket serverSocket;
     private static List<ClientThread> clients;
-    private static List<Item> auctionItemList;
+    private static Set<Item> auctionItemList;
 
     public static void main(String[] args) {
         new Server().startServer();
@@ -30,7 +30,7 @@ public class Server extends Observable {
     }
 
     private void retrieveAuctionItems() {
-        auctionItemList = new ArrayList<>();
+        auctionItemList = new HashSet<>();
         ConnectionString connectionString = new ConnectionString("mongodb://localhost:27017");
         MongoClient client = MongoClients.create(connectionString);
         MongoDatabase database = client.getDatabase("appdb");
@@ -65,13 +65,20 @@ public class Server extends Observable {
         }
     }
 
-    public void processRequest(Message request) {
+    public synchronized void processRequest(Message request) {
         String command = request.command;
         switch (command) {
+            case "buyNow":
+                Item auctionItem = request.auctionItem;
+                auctionItem.timeRemaining = 0;
+                Message newMessage = new Message("itemPurchased", auctionItem, auctionItem.buyNowPrice);
+                for (ClientThread client : clients)
+                    client.sendToClient(newMessage);
+                break;
         }
     }
 
-    public List<Item> getAuctionItemList() {
+    public Set<Item> getAuctionItemList() {
         return auctionItemList;
     }
 

@@ -12,7 +12,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.util.Duration;
 
-public class ClientController implements Initializable {
+public class ClientController extends Client implements Initializable {
     private static Stage primaryStage;
     @FXML
     private ScrollPane itemListPane;
@@ -29,10 +29,14 @@ public class ClientController implements Initializable {
         primaryStage = s;
     }
 
+    public VBox getItemListPaneVBox() {
+        return itemListPaneVBox;
+    }
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         System.out.println("Auction FXML Initialization called");
-        title.setText("Welcome to eHills, " + LogInController.getUsername() + "!");
+        title.setText("Welcome to eHills, " + username + "!");
         itemListPane.setContent(itemListPaneVBox);
         Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(0.2), this::updateTimer));
         timeline.setCycleCount(Timeline.INDEFINITE);
@@ -40,15 +44,20 @@ public class ClientController implements Initializable {
     }
 
     private void updateTimer(ActionEvent event) {
-        itemListPaneVBox.getChildren().clear();
-        for (Item i : Client.getAuctionItemList())
-            itemListPaneVBox.getChildren().add(i.display());
+        for (Item i : Client.getAuctionItemList()) {
+            if (!i.displayed)
+                itemListPaneVBox.getChildren().add(i.display());
+            if (i.sold)
+                itemListPaneVBox.getChildren().remove(i.display());
+        }
     }
 
     @FXML
     public void logOutAction() {
         try {
             primaryStage.setScene(Client.loginScene(primaryStage));
+            for (Item i : getAuctionItemList())
+                i.displayed = false;
         } catch (IOException e) {
             e.printStackTrace();
         }

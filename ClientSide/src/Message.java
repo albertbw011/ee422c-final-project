@@ -4,7 +4,7 @@ public class Message implements Serializable {
     private static final long serialVersionUID = 1L;
     String command;
     Item auctionItem;
-    int number;
+    double number;
 
     protected Message(String command) {
         this.command = command;
@@ -18,7 +18,7 @@ public class Message implements Serializable {
         this.number = 0;
     }
 
-    protected Message(String command, Item auctionItem, int number) {
+    protected Message(String command, Item auctionItem, double number) {
         this.command = command;
         this.auctionItem = auctionItem;
         this.number = number;
@@ -32,7 +32,7 @@ public class Message implements Serializable {
         return auctionItem;
     }
 
-    public int getNumber() {
+    public double getNumber() {
         return number;
     }
 }

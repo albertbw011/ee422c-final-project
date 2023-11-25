@@ -3,6 +3,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.Set;
 
 public class ClientThread implements Runnable, Observer {
     private Socket socket;
@@ -10,7 +11,7 @@ public class ClientThread implements Runnable, Observer {
     private ObjectInputStream inputStream;
     private ObjectOutputStream outputStream;
     private boolean updateItems;
-    private List<Item> auctionItemList;
+    private Set<Item> auctionItemList;
 
     public ClientThread(Server server, Socket socket) throws IOException {
         this.server = server;

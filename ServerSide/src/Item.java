@@ -6,6 +6,7 @@ import java.util.List;
 
 public class Item implements Serializable {
     private static final long serialVersionUID = 1L;
+    int itemID;
     String name;
     String buyer;
     String description;
