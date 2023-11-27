@@ -1,4 +1,5 @@
 import javafx.scene.image.*;
+import org.bson.Document;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -71,7 +72,7 @@ public class Item implements Serializable {
         timeRemaining--;
     }
 
-    static class BidInstance implements Serializable {
+    public static class BidInstance implements Serializable {
         private static final long serialVersionUID = 30L;
         String bidder;
         double bidPrice;
@@ -82,6 +83,11 @@ public class Item implements Serializable {
             this.bidPrice = bidPrice;
             this.timeRemaining = timeRemaining;
             this.purchased = purchased;
+        }
+
+        public static BidInstance fromDocument(Document doc) {
+            return new BidInstance(doc.getString("bidder"), doc.getInteger("bidPrice"),
+                    doc.getInteger("timeRemaining"), doc.getBoolean("purchased"));
         }
         @Override
         public String toString() {

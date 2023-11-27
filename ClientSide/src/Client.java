@@ -16,14 +16,12 @@ import java.util.*;
 import javafx.scene.media.AudioClip;
 
 public class Client extends Application {
-    protected static Stage primaryStage;
     private static ObjectInputStream inputStream;
     private static ObjectOutputStream outputStream;
     private static Socket socket;
     private static List<CustomerInstance> customerHistory;
     private static List<Item> auctionItemList;
     protected static String username;
-    private int itemID;
     private static FXMLLoader loginLoader;
     private static FXMLLoader auctionLoader;
     private static FXMLLoader placeBidLoader;
@@ -147,8 +145,6 @@ public class Client extends Application {
         VBox clientVBox = controller.getItemListPaneVBox();
         switch (command) {
             case "addItem":
-                auctionItem.itemID = itemID;
-                itemID++;
                 auctionItemList.add(auctionItem);
                 break;
             case "itemPurchased":
@@ -179,8 +175,13 @@ public class Client extends Application {
                         .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
                         .map(node -> (HBox) node)
                         .findFirst()
-                        .ifPresent(hBox -> Platform.runLater(() -> updateHBoxContents(hBox, auctionItem)));
+                        .ifPresent(hBox -> Platform.runLater(() -> updateTime(hBox, auctionItem)));
+                break;
         }
+    }
+
+    private static void updateTime(HBox hBox, Item auctionItem) {
+        setLabelValue(hBox, "#timeRemainingLabelValue", Item.displayTime(auctionItem.timeRemaining) + " remaining");
     }
 
     private static void updateHBoxContents(HBox hBox, Item auctionItem) {

@@ -16,7 +16,6 @@ import java.util.List;
 
 public class Item implements Serializable {
     private static final long serialVersionUID = 1234L;
-    int itemID;
     String name;
     String currentBidder;
     String buyer;
@@ -32,6 +31,7 @@ public class Item implements Serializable {
     Image image;
     boolean displayed;
     boolean hasItemEnded;
+    transient Timeline timeline = new Timeline();
 
 
     public Item(String name, String description, String imagePath, double minBid, double buyNow, int time) {
@@ -85,11 +85,10 @@ public class Item implements Serializable {
         timeRemainingLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         timeRemainingLabel.setTextFill((timeRemaining < 600) ? Color.RED : Color.BLACK);
         timeRemainingLabel.setId("timeRemainingLabel");
-        Timeline timeline = new Timeline();
+        timeline = new Timeline();
         timeline.getKeyFrames().add(new KeyFrame(Duration.seconds(1.0), event -> {
             if (timeRemaining > 0) {
                 timeRemainingLabel.setText(displayTime(timeRemaining) + " remaining");
-                //this.decrementTimeRemaining();
             } else {
                 timeline.stop();
                 if (!timeRemainingLabel.getText().equals("Ended")) {
@@ -177,12 +176,12 @@ public class Item implements Serializable {
 
     public static String displayTime(int time) {
         int days = time / (24*3600);
-        int hours = time / 3600;
+        int hours = (time / 3600) % 24;
         int minutes = (time % 3600) / 60;
         int seconds = time % 60;
 
         StringBuilder timeDisplay = new StringBuilder();
-        if (days > 0) timeDisplay.append(String.format("%dd ", days));
+        if (days > 0) timeDisplay.append(days < 10 ? String.format("%dd ", days) : String.format("%02dd ", hours));
         if (hours > 0) timeDisplay.append(hours < 10 ? String.format("%dh ", hours) : String.format("%02dh ", hours));
         if (minutes > 0) timeDisplay.append(minutes < 10 ? String.format("%dm ", minutes) : String.format("%02dm ", minutes));
         if (seconds > 0) timeDisplay.append(seconds < 10 ? String.format("%ds", seconds) : String.format("%02ds", seconds));

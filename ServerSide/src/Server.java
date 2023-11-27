@@ -1,21 +1,17 @@
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoException;
-import com.mongodb.ServerApi;
-import com.mongodb.ServerApiVersion;
 import com.mongodb.client.*;
 import org.bson.Document;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Observable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
+import static com.mongodb.client.model.Updates.push;
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Updates.set;
 
@@ -34,6 +30,7 @@ public class Server extends Observable {
 
     private void startServer() {
         try {
+            auctionItemList = new ArrayList<>();
             setUpDB();
             retrieveAuctionItems();
             ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
@@ -41,9 +38,10 @@ public class Server extends Observable {
                 for (Item i : auctionItemList) {
                     i.decrementTimeRemaining();
                     updateDocument("timeRemaining", i, String.valueOf(i.getTimeRemaining()));
-                    updateDocument("currentBid", i, String.valueOf(i.currentBid));
-                    if (i.sold)
-                        updateDocument("sold", i, String.valueOf(true));
+                    Message sendMessage = new Message("updateItemTime", i, i.getTimeRemaining());
+                    setItemInList(i);
+                    this.setChanged();
+                    this.notifyObservers(sendMessage);
                 }
                 System.out.println("updated database");
                 update = true;
@@ -73,7 +71,6 @@ public class Server extends Observable {
     }
 
     private void retrieveAuctionItems() {
-        auctionItemList = new ArrayList<>();
         for (Document auctionItem : items.find()) {
             Item item = new Item(auctionItem.getString("name"), auctionItem.getString("description"),
                     Double.parseDouble(auctionItem.getString("startingBid")), Double.parseDouble(auctionItem.getString("buyNowPrice")),
@@ -103,14 +100,19 @@ public class Server extends Observable {
     public synchronized void processRequest(Message request) {
         String command = request.command;
         Item auctionItem = request.auctionItem;
+        List<Item.BidInstance> bidHistory = auctionItem.bidHistory;
         Message sendMessage;
         switch (command) {
             case "buyNow":
                 auctionItem.timeRemaining = 0;
                 sendMessage = new Message("itemPurchased", auctionItem, auctionItem.buyNowPrice);
+                updateDocument("sold", auctionItem, String.valueOf(true));
+                updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size()-1));
                 break;
             case "updateBid":
                 sendMessage = new Message("updateItemBid", auctionItem, auctionItem.currentBid);
+                updateDocument("currentBid", auctionItem, String.valueOf(auctionItem.currentBid));
+                updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size()-1));
                 break;
             case "itemEnded":
                 if (!auctionItem.bidHistory.isEmpty()) {
@@ -129,6 +131,22 @@ public class Server extends Observable {
 
     public void updateDocument(String field, Item item, String updatedValue) {
         items.updateOne(eq("name", item.name), set(field, updatedValue));
+    }
+
+    public void updateDocumentBidHistory(Item item, Item.BidInstance bidInstance) {
+        Document doc = new Document()
+                .append("bidder", bidInstance.bidder)
+                .append("bidPrice", bidInstance.bidPrice)
+                .append("timeRemaining", bidInstance.timeRemaining)
+                .append("purchased", bidInstance.purchased);
+        items.updateOne(eq("name", item.name), push("bidHistory", doc));
+    }
+
+    private List<Item.BidInstance> retrieveItemBidHistory() {
+        List<Item.BidInstance> bidInstanceList = new ArrayList<>();
+        for (Document auctionItem : items.find())
+            bidInstanceList.add(Item.BidInstance.fromDocument(auctionItem));
+        return bidInstanceList;
     }
 
     private void setItemInList(Item item) {
