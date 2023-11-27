@@ -5,10 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Item implements Serializable {
-    private static final long serialVersionUID = 1L;
-    int itemID;
+    private static final long serialVersionUID = 1234L;
     String name;
     String buyer;
+    String currentBidder;
     String description;
     double soldPrice;
     double startingBid;
@@ -23,6 +23,7 @@ public class Item implements Serializable {
     // constructor without image
     public Item(String name, String description, double minBid, double buyNow, int time) {
         this.name = name;
+        this.currentBidder = null;
         this.description = description;
         this.startingBid = minBid;
         this.buyNowPrice = buyNow;
@@ -36,6 +37,7 @@ public class Item implements Serializable {
     // constructor with image
     public Item(String name, String description, String imagePath, double minBid, double buyNow, int time) {
         this.name = name;
+        this.currentBidder = null;
         this.description = description;
         this.startingBid = minBid;
         this.buyNowPrice = buyNow;
@@ -47,14 +49,43 @@ public class Item implements Serializable {
         this.image = new Image(imagePath);
     }
 
-    class BidInstance {
+    public static String displayTime(int time) {
+        int days = time / (24*3600);
+        int hours = time / 3600;
+        int minutes = (time % 3600) / 60;
+        int seconds = time % 60;
+
+        StringBuilder timeDisplay = new StringBuilder();
+        if (days > 0) timeDisplay.append(String.format("%dd ", days));
+        if (hours > 0) timeDisplay.append(hours < 10 ? String.format("%dh ", hours) : String.format("%02dh ", hours));
+        if (minutes > 0) timeDisplay.append(minutes < 10 ? String.format("%dm ", minutes) : String.format("%02dm ", minutes));
+        if (seconds > 0) timeDisplay.append(seconds < 10 ? String.format("%ds", seconds) : String.format("%02ds", seconds));
+        return timeDisplay.toString();
+    }
+
+    public int getTimeRemaining() {
+        return timeRemaining;
+    }
+
+    public void decrementTimeRemaining() {
+        timeRemaining--;
+    }
+
+    static class BidInstance implements Serializable {
+        private static final long serialVersionUID = 30L;
         String bidder;
         double bidPrice;
         int timeRemaining;
-        public BidInstance(String bidder, double bidPrice, int timeRemaining) {
+        boolean purchased;
+        public BidInstance(String bidder, double bidPrice, int timeRemaining, boolean purchased) {
             this.bidder = bidder;
             this.bidPrice = bidPrice;
             this.timeRemaining = timeRemaining;
+            this.purchased = purchased;
+        }
+        @Override
+        public String toString() {
+            return bidder + " " + bidPrice + " " + displayTime(timeRemaining);
         }
     }
 }

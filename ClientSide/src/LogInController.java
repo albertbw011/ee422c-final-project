@@ -1,10 +1,14 @@
 import javafx.fxml.FXML;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.stage.Stage;
+
 import java.io.IOException;
 
 public class LogInController extends Client {
-    private static Stage primaryStage;
+    private Stage primaryStage;
     @FXML
     private TextField usernameTextField;
     @FXML
@@ -17,7 +21,9 @@ public class LogInController extends Client {
     private Button loginGuestButton;
     private static String password;
 
-    public static void setPrimaryStage(Stage s) {
+    public LogInController() {}
+
+    public void setPrimaryStage(Stage s) {
         primaryStage = s;
     }
 
@@ -34,6 +40,7 @@ public class LogInController extends Client {
             passwordTextField.clear();
         } else {
             try {
+                loginSound.play();
                 primaryStage.setScene(auctionScene(primaryStage));
                 readFromServer();
             } catch (IOException e) {
@@ -71,6 +78,7 @@ public class LogInController extends Client {
             errorLabel.setText("Please enter a username");
         } else {
             try {
+                loginSound.play();
                 primaryStage.setScene(auctionScene(primaryStage));
                 readFromServer();
             } catch (IOException e) {
@@ -78,4 +86,6 @@ public class LogInController extends Client {
             }
         }
     }
+
+
 }

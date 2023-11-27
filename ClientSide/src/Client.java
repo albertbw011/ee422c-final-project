@@ -1,7 +1,10 @@
 import javafx.application.Application;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -10,6 +13,7 @@ import javafx.application.Platform;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
+import javafx.scene.media.AudioClip;
 
 public class Client extends Application {
     protected static Stage primaryStage;
@@ -17,23 +21,31 @@ public class Client extends Application {
     private static ObjectOutputStream outputStream;
     private static Socket socket;
     private static List<CustomerInstance> customerHistory;
-    private static Set<Item> auctionItemList;
+    private static List<Item> auctionItemList;
     protected static String username;
     private int itemID;
     private static FXMLLoader loginLoader;
     private static FXMLLoader auctionLoader;
     private static FXMLLoader placeBidLoader;
+    private static Parent loginParent;
+    private static Parent auctionParent;
+    private static Parent placeBidParent;
+    protected static LogInController logInController;
+    protected static ClientController clientController;
+    protected static BidController bidController;
+    protected static AudioClip buttonSound;
+    protected static AudioClip loginSound;
 
     public static void main(String[] args) {
         launch(args);
     }
 
     public void start(Stage primaryStage) {
+        customerHistory = new ArrayList<>();
+        auctionItemList = new ArrayList<>();
+        buttonSound = new AudioClip(Objects.requireNonNull(Client.class.getResource("ui-click-97915.mp3")).toExternalForm());
+        loginSound = new AudioClip(Objects.requireNonNull(Client.class.getResource("button-pressed-38129.mp3")).toExternalForm());
         try {
-            customerHistory = new ArrayList<>();
-            auctionItemList = new HashSet<>();
-            itemID = 0;
-            Client.primaryStage = primaryStage;
             primaryStage.setScene(loginScene(primaryStage));
         } catch (IOException e) {
             e.printStackTrace();
@@ -47,23 +59,31 @@ public class Client extends Application {
         primaryStage.setTitle("Login to eHills");
         primaryStage.setResizable(false);
         loginLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Login.fxml")));
-        LogInController.setPrimaryStage(primaryStage);
-        return new Scene(loginLoader.load(), 1300, 800);
+        loginParent = loginLoader.load();
+        logInController = loginLoader.getController();
+        logInController.setPrimaryStage(primaryStage);
+        return new Scene(loginParent, 1300, 800);
     }
 
     public static Scene auctionScene(Stage primaryStage) throws IOException {
         primaryStage.setTitle("eHills");
         primaryStage.setResizable(true);
         auctionLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Auction.fxml")));
-        ClientController.setPrimaryStage(primaryStage);
+        auctionParent = auctionLoader.load();
+        clientController = auctionLoader.getController();
+        clientController.setPrimaryStage(primaryStage);
         setUpConnection();
-        return new Scene(auctionLoader.load(), 1600, 900);
+        return new Scene(auctionParent, 1600, 900);
     }
 
-    public static Scene placeBidScene(Stage primaryStage) throws IOException {
+    public static Scene placeBidScene(Stage primaryStage, Item item) throws IOException {
         primaryStage.setResizable(false);
         placeBidLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("PlaceBid.fxml")));
-        return new Scene(placeBidLoader.load(), 700, 300);
+        placeBidParent = placeBidLoader.load();
+        bidController = placeBidLoader.getController();
+        bidController.setItem(item);
+        bidController.setStage(primaryStage);
+        return new Scene(placeBidParent, 700, 300);
     }
 
     public static Scene confirmScene(Stage primaryStage) throws IOException {
@@ -82,10 +102,11 @@ public class Client extends Application {
         }
     }
 
-    private static void sendToServer(Object input) throws IOException {
+    protected static void sendToServer(Message input) throws IOException {
         outputStream.reset();
         outputStream.writeObject(input);
         outputStream.flush();
+        System.out.println("Sending to server: " + input.command);
     }
 
     public void readFromServer() throws IOException {
@@ -114,11 +135,14 @@ public class Client extends Application {
      * Possible command list:
      * addItem, item: adds numItems auction items to the auction items list
      * itemPurchased, item: indicates to everyone the item has been successfully purchased and at what price
+     * itemEnded, item: indicates to everyone that the time has ran out for the item and can no longer be purchased
+     * updateItemBid, item: indicates that the bid for an item has increased
      * @param input
      */
-    private void processRequest(Message input) {
+    private synchronized void processRequest(Message input) {
         String command = input.getCommand();
         Item auctionItem = Objects.requireNonNull(input.getAuctionItem());
+        auctionItem.totalBids = auctionItem.bidHistory.size();
         ClientController controller = auctionLoader.getController();
         VBox clientVBox = controller.getItemListPaneVBox();
         switch (command) {
@@ -128,54 +152,109 @@ public class Client extends Application {
                 auctionItemList.add(auctionItem);
                 break;
             case "itemPurchased":
-                clientVBox.getChildren().stream()
-                        .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
-                        .map(node -> (HBox) node)
-                        .findFirst().ifPresent(hBoxToRemove -> Platform.runLater(() -> {
-                            clientVBox.getChildren().remove(hBoxToRemove);
-                            clientVBox.getChildren().add(auctionItem.display());
-                        }));
-                break;
-            case "updateItemBid":
+            case "itemEnded":
+                // removes the item and adds it to the end without bid/buy buttons
+                // indicates its ended and/or sold
                 clientVBox.getChildren().stream()
                         .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
                         .map(node -> (HBox) node)
                         .findFirst().ifPresent(hBox -> Platform.runLater(() -> {
-                            Label editLabel = (Label) hBox.lookup("#currentItemPriceLabel");
-                            editLabel.setText(String.format("Current Bid: $%.2f", auctionItem.currentBid));
+                            clientVBox.getChildren().remove(hBox);
+                            clientVBox.getChildren().add(auctionItem.display());
+                            setLabelValue(auctionItem.display(), "#totalBidsLabel",
+                                    String.format("%d Bid%s", auctionItem.totalBids, auctionItem.totalBids == 1 ? "" : "s"));
                         }));
                 break;
+            case "updateItemBid":
+                // edits the current bid price and edits the total number of bids
+                clientVBox.getChildren().stream()
+                        .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
+                        .map(node -> (HBox) node)
+                        .findFirst()
+                        .ifPresent(hBox -> Platform.runLater(() -> updateHBoxContents(hBox, auctionItem)));
+                System.out.println(auctionItem.bidHistory);
+                break;
+            case "updateItemTime":
+                clientVBox.getChildren().stream()
+                        .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
+                        .map(node -> (HBox) node)
+                        .findFirst()
+                        .ifPresent(hBox -> Platform.runLater(() -> updateHBoxContents(hBox, auctionItem)));
+        }
+    }
+
+    private static void updateHBoxContents(HBox hBox, Item auctionItem) {
+        setLabelValue(hBox, "#currentItemPriceLabel", String.format("Current Bid: $%.2f", auctionItem.currentBid));
+        setLabelValue(hBox, "#totalBidsLabel", String.format("%d Bid%s", auctionItem.totalBids, auctionItem.totalBids == 1 ? "" : "s"));
+        setButtonAction(hBox, "#placeBidButton", event -> openBidStage(auctionItem));
+        setButtonAction(hBox, "#buyNowButton", event -> openConfirmStage(auctionItem));
+    }
+
+    private static void setLabelValue(HBox hBox, String labelId, String text) {
+        Label label = (Label) hBox.lookup(labelId);
+        if (label != null) {
+            label.setText(text);
+        }
+    }
+
+    private static void setButtonAction(HBox hBox, String buttonId, EventHandler<ActionEvent> eventHandler) {
+        Button button = (Button) hBox.lookup(buttonId);
+        if (button != null) {
+            button.setOnAction(eventHandler);
+        }
+    }
+
+    protected static void openBidStage(Item auctionItem) {
+        try {
+            Stage bidStage = new Stage();
+            bidStage.setTitle("Place bid for " + auctionItem.name);
+            bidStage.setScene(Client.placeBidScene(bidStage, auctionItem));
+            bidController.setStage(bidStage);
+            bidStage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void openConfirmStage(Item auctionItem) {
+        Stage newStage = new Stage();
+        try {
+            ConfirmController.setStage(newStage);
+            ConfirmController.setItem(auctionItem);
+            newStage.setScene(confirmScene(newStage));
+            newStage.show();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
     public void sendBid(double bidAmount, Item item) {
-        synchronized (item) {
-            if (bidAmount >= item.buyNowPrice) {
-                item.buyer = username;
-                item.soldPrice = item.buyNowPrice;
-                Message sendMessage = new Message("buyNow", item);
-                try {
-                    sendToServer(sendMessage);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                item.currentBid = bidAmount;
-                Message sendMessage = new Message("updateBid", item);
-                try {
-                    sendToServer(sendMessage);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        if (bidAmount >= item.buyNowPrice) {
+            item.buyer = username;
+            item.soldPrice = item.buyNowPrice;
+            Message sendMessage = new Message("buyNow", item);
+            try {
+                sendToServer(sendMessage);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            item.currentBidder = username;
+            item.currentBid = bidAmount;
+            Message sendMessage = new Message("updateBid", item);
+            try {
+                sendToServer(sendMessage);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
 
-    public static Set<Item> getAuctionItemList() {
+    public static List<Item> getAuctionItemList() {
         return auctionItemList;
     }
 
-    class CustomerInstance {
+    static class CustomerInstance {
         String itemName;
         double bidPrice;
         boolean inProgress;

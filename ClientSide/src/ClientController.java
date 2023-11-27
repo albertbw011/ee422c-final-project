@@ -13,7 +13,7 @@ import javafx.animation.Timeline;
 import javafx.util.Duration;
 
 public class ClientController extends Client implements Initializable {
-    private static Stage primaryStage;
+    private Stage primaryStage;
     @FXML
     private ScrollPane itemListPane;
     @FXML
@@ -24,9 +24,10 @@ public class ClientController extends Client implements Initializable {
     private Button exitButton;
     @FXML
     private Text title;
-    private boolean updateList;
 
-    public static void setPrimaryStage(Stage s) {
+    public ClientController() {}
+
+    public void setPrimaryStage(Stage s) {
         primaryStage = s;
     }
 
@@ -54,6 +55,7 @@ public class ClientController extends Client implements Initializable {
     @FXML
     public void logOutAction() {
         try {
+            buttonSound.play();
             primaryStage.setScene(Client.loginScene(primaryStage));
             for (Item i : getAuctionItemList())
                 i.displayed = false;
@@ -74,6 +76,7 @@ public class ClientController extends Client implements Initializable {
 
     @FXML
     public void quitAction() {
+        buttonSound.play();
         primaryStage.close();
         System.exit(0);
     }

@@ -10,6 +10,8 @@ public class ConfirmController extends Client {
     @FXML
     private Button noButton;
 
+    public ConfirmController() {}
+
     public static void setStage(Stage s) {
         stage = s;
     }
@@ -29,6 +31,7 @@ public class ConfirmController extends Client {
 
     @FXML
     private void yesButtonAction() {
+        item.addBidInstance(item.buyer, item.buyNowPrice, item.timeRemaining, true);
         sendBid(item.buyNowPrice, item);
         stage.close();
     }
