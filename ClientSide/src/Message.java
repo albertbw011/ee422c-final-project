@@ -8,8 +8,8 @@ public class Message implements Serializable {
 
     protected Message(String command) {
         this.command = command;
-        auctionItem = null;
-        number = 0;
+        this.auctionItem = null;
+        this.number = 0;
     }
 
     protected Message(String command, Item auctionItem) {

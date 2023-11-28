@@ -10,7 +10,7 @@ public class ClientThread implements Runnable, Observer {
     private final Server server;
     private final ObjectInputStream inputStream;
     private final ObjectOutputStream outputStream;
-    private List<Item> auctionItemList;
+    private final List<Item> auctionItemList;
 
     public ClientThread(Server server, Socket socket) throws IOException {
         this.server = server;
@@ -35,7 +35,7 @@ public class ClientThread implements Runnable, Observer {
                     }
                     server.update = false;
                 }
-                Message receivedMessage = (Message) inputStream.readObject();
+                Message receivedMessage = (Message) inputStream.readUnshared();
                 server.processRequest(receivedMessage);
             }
         } catch (ClassNotFoundException | IOException e ) {
@@ -43,11 +43,12 @@ public class ClientThread implements Runnable, Observer {
         }
     }
 
-    public void sendToClient(Object o) {
+    public void sendToClient(Message m) {
         try {
-            System.out.println("Sending to client: " + o);
+            if (!m.command.equals("updateItemTime"))
+                System.out.println("Sending to client: " + m);
             this.outputStream.reset();
-            this.outputStream.writeObject(o);
+            this.outputStream.writeUnshared(m);
             this.outputStream.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -56,6 +57,6 @@ public class ClientThread implements Runnable, Observer {
 
     @Override
     public void update(Observable o, Object arg) {
-        this.sendToClient(arg);
+        this.sendToClient((Message) arg);
     }
 }

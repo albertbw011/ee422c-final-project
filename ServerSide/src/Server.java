@@ -16,13 +16,13 @@ import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Updates.set;
 
 public class Server extends Observable {
-    private static ServerSocket serverSocket;
-    private static List<ClientThread> clients;
-    private static List<Item> auctionItemList;
-    private static MongoClient mongoClient;
-    private static MongoDatabase database;
-    private static ConnectionString connectionString;
-    private static MongoCollection<Document> items;
+    private ServerSocket serverSocket;
+    private List<ClientThread> clients;
+    private List<Item> auctionItemList;
+    private MongoClient mongoClient;
+    private MongoDatabase database;
+    private ConnectionString connectionString;
+    private MongoCollection<Document> items;
     protected boolean update;
     public static void main(String[] args) {
         new Server().startServer();
@@ -35,13 +35,15 @@ public class Server extends Observable {
             retrieveAuctionItems();
             ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
             ex.scheduleAtFixedRate(() -> {
+                this.updateAuctionItemList();
                 for (Item i : auctionItemList) {
-                    i.decrementTimeRemaining();
-                    updateDocument("timeRemaining", i, String.valueOf(i.getTimeRemaining()));
-                    Message sendMessage = new Message("updateItemTime", i, i.getTimeRemaining());
-                    setItemInList(i);
-                    this.setChanged();
-                    this.notifyObservers(sendMessage);
+                    if (i.timeRemaining > -2) {
+                        i.decrementTimeRemaining();
+                        updateDocument("timeRemaining", i, i.getTimeRemaining());
+                        Message sendMessage = new Message("updateItemTime", i);
+                        this.setChanged();
+                        this.notifyObservers(sendMessage);
+                    }
                 }
                 System.out.println("updated database");
                 update = true;
@@ -70,27 +72,50 @@ public class Server extends Observable {
             }
     }
 
-    private void retrieveAuctionItems() {
+    public void retrieveAuctionItems() {
         for (Document auctionItem : items.find()) {
             Item item = new Item(auctionItem.getString("name"), auctionItem.getString("description"),
-                    Double.parseDouble(auctionItem.getString("startingBid")), Double.parseDouble(auctionItem.getString("buyNowPrice")),
-                    Integer.parseInt(auctionItem.getString("timeRemaining")));
+                    auctionItem.getDouble("startingBid"), auctionItem.getDouble("buyNowPrice"),
+                    auctionItem.getInteger("timeRemaining"), auctionItem.getDouble("currentBid"),
+                    retrieveItemBidHistoryFromDB(auctionItem.getString("name")));
             auctionItemList.add(item);
         }
         update = false;
+    }
+
+    public void updateAuctionItemList() {
+        for (Document auctionItem : items.find()) {
+            Item newItem = new Item(auctionItem.getString("name"), auctionItem.getString("description"),
+                    auctionItem.getDouble("startingBid"), auctionItem.getDouble("buyNowPrice"),
+                    auctionItem.getInteger("timeRemaining"), auctionItem.getDouble("currentBid"),
+                    retrieveItemBidHistoryFromDB(auctionItem.getString("name")));
+            int initialIndex = returnIndex(newItem.name);
+            auctionItemList.set(initialIndex, newItem);
+        }
+        update = false;
+    }
+
+    private int returnIndex(String itemName) {
+        for (int i = 0; i < auctionItemList.size(); i++) {
+            Item it = auctionItemList.get(i);
+            if (it.name.equals(itemName))
+                return i;
+        }
+        return -1;
     }
 
     private void acceptClients() {
         clients = new ArrayList<>();
         try {
             while(true) {
-                    Socket clientSocket = serverSocket.accept();
-                    ClientThread client = new ClientThread(this, clientSocket);
-                    System.out.println("Connecting to..." + clientSocket);
-                    Thread thread = new Thread(client);
-                    this.addObserver(client);
-                    thread.start();
-                    clients.add(client);
+                this.updateAuctionItemList();
+                Socket clientSocket = serverSocket.accept();
+                ClientThread client = new ClientThread(this, clientSocket);
+                System.out.println("Connecting to..." + clientSocket);
+                Thread thread = new Thread(client);
+                this.addObserver(client);
+                thread.start();
+                clients.add(client);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -101,35 +126,36 @@ public class Server extends Observable {
         String command = request.command;
         Item auctionItem = request.auctionItem;
         List<Item.BidInstance> bidHistory = auctionItem.bidHistory;
-        Message sendMessage;
+        Message sendMessage = new Message("");
         switch (command) {
             case "buyNow":
                 auctionItem.timeRemaining = 0;
-                sendMessage = new Message("itemPurchased", auctionItem, auctionItem.buyNowPrice);
-                updateDocument("sold", auctionItem, String.valueOf(true));
+                sendMessage = new Message("itemPurchased", auctionItem);
+                updateDocument("sold", auctionItem, true);
+                updateDocument("buyer", auctionItem, auctionItem.buyer);
                 updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size()-1));
                 break;
             case "updateBid":
-                sendMessage = new Message("updateItemBid", auctionItem, auctionItem.currentBid);
-                updateDocument("currentBid", auctionItem, String.valueOf(auctionItem.currentBid));
+                sendMessage = new Message("updateItemBid", auctionItem);
+                updateDocument("currentBid", auctionItem, auctionItem.currentBid);
                 updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size()-1));
                 break;
             case "itemEnded":
                 if (!auctionItem.bidHistory.isEmpty()) {
-                    auctionItem.buyer = auctionItem.bidHistory.get(auctionItem.bidHistory.size() - 1).bidder;
-                    auctionItem.soldPrice = auctionItem.bidHistory.get(auctionItem.bidHistory.size() - 1).bidPrice;
+                    auctionItem.buyer = bidHistory.get(bidHistory.size() - 1).bidder;
+                    auctionItem.soldPrice = bidHistory.get(bidHistory.size() - 1).bidPrice;
                 }
-                sendMessage = new Message("itemEnded", auctionItem);
+                if (!auctionItem.sold) {
+                    auctionItem.sold = true;
+                    sendMessage = new Message("itemEnded", auctionItem);
+                }
                 break;
-            default:
-                sendMessage = null;
         }
-        setItemInList(auctionItem);
         this.setChanged();
         this.notifyObservers(sendMessage);
     }
 
-    public void updateDocument(String field, Item item, String updatedValue) {
+    public void updateDocument(String field, Item item, Object updatedValue) {
         items.updateOne(eq("name", item.name), set(field, updatedValue));
     }
 
@@ -142,21 +168,12 @@ public class Server extends Observable {
         items.updateOne(eq("name", item.name), push("bidHistory", doc));
     }
 
-    private List<Item.BidInstance> retrieveItemBidHistory() {
-        List<Item.BidInstance> bidInstanceList = new ArrayList<>();
-        for (Document auctionItem : items.find())
-            bidInstanceList.add(Item.BidInstance.fromDocument(auctionItem));
-        return bidInstanceList;
-    }
-
-    private void setItemInList(Item item) {
-        for (int i = 0; i < auctionItemList.size(); i++) {
-            Item listItem = auctionItemList.get(i);
-            if (listItem.name.equals(item.name)) {
-                auctionItemList.set(i, item);
-                break;
-            }
+    private List<Item.BidInstance> retrieveItemBidHistoryFromDB(String name) {
+        for (Document d : items.find()) {
+            if (d.getString("name").equals(name))
+                return Item.BidInstance.fromDocument(d);
         }
+        return null;
     }
 
     public List<Item> getAuctionItemList() {

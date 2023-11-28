@@ -8,6 +8,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.application.Platform;
 import java.io.*;
@@ -22,15 +23,11 @@ public class Client extends Application {
     private static List<CustomerInstance> customerHistory;
     private static List<Item> auctionItemList;
     protected static String username;
-    private static FXMLLoader loginLoader;
     private static FXMLLoader auctionLoader;
-    private static FXMLLoader placeBidLoader;
-    private static Parent loginParent;
-    private static Parent auctionParent;
-    private static Parent placeBidParent;
     protected static LogInController logInController;
     protected static ClientController clientController;
     protected static BidController bidController;
+    protected static BidHistoryController bidHistoryController;
     protected static AudioClip buttonSound;
     protected static AudioClip loginSound;
 
@@ -56,8 +53,8 @@ public class Client extends Application {
             socket.close();
         primaryStage.setTitle("Login to eHills");
         primaryStage.setResizable(false);
-        loginLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Login.fxml")));
-        loginParent = loginLoader.load();
+        FXMLLoader loginLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Login.fxml")));
+        Parent loginParent = loginLoader.load();
         logInController = loginLoader.getController();
         logInController.setPrimaryStage(primaryStage);
         return new Scene(loginParent, 1300, 800);
@@ -67,7 +64,7 @@ public class Client extends Application {
         primaryStage.setTitle("eHills");
         primaryStage.setResizable(true);
         auctionLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Auction.fxml")));
-        auctionParent = auctionLoader.load();
+        Parent auctionParent = auctionLoader.load();
         clientController = auctionLoader.getController();
         clientController.setPrimaryStage(primaryStage);
         setUpConnection();
@@ -76,8 +73,8 @@ public class Client extends Application {
 
     public static Scene placeBidScene(Stage primaryStage, Item item) throws IOException {
         primaryStage.setResizable(false);
-        placeBidLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("PlaceBid.fxml")));
-        placeBidParent = placeBidLoader.load();
+        FXMLLoader placeBidLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("PlaceBid.fxml")));
+        Parent placeBidParent = placeBidLoader.load();
         bidController = placeBidLoader.getController();
         bidController.setItem(item);
         bidController.setStage(primaryStage);
@@ -90,6 +87,16 @@ public class Client extends Application {
         return new Scene(confirm, 500, 150);
     }
 
+    public static Scene bidHistoryScene(Stage primaryStage, Item item) throws IOException {
+        primaryStage.setResizable(false);
+        FXMLLoader bidHistoryLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("BidHistory.fxml")));
+        Parent bidHistoryParent = bidHistoryLoader.load();
+        bidHistoryController = bidHistoryLoader.getController();
+        bidHistoryController.setItem(item);
+        bidHistoryController.setStage(primaryStage);
+        return new Scene(bidHistoryParent, 400, item.bidHistory.size()*50);
+    }
+
     public static void setUpConnection() {
         try {
             socket = new Socket("localhost", 4444);
@@ -100,33 +107,29 @@ public class Client extends Application {
         }
     }
 
-    protected static void sendToServer(Message input) throws IOException {
-        outputStream.reset();
-        outputStream.writeObject(input);
-        outputStream.flush();
-        System.out.println("Sending to server: " + input.command);
+    protected static void sendToServer(Message input) {
+        try {
+            outputStream.reset();
+            outputStream.writeUnshared(input);
+            outputStream.flush();
+            System.out.println("Sending to server: " + input.command);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void readFromServer() throws IOException {
         Thread readerThread = new Thread (() -> {
             try {
                 while (true) {
-                    Message input = (Message) inputStream.readObject();
+                    Message input = (Message) inputStream.readUnshared();
                     processRequest(input);
                 }
             } catch (ClassNotFoundException | IOException e) {
                 e.printStackTrace();
             }
         });
-
-        Thread writerThread = new Thread (() -> {
-            while (true) {
-
-            }
-        });
-
         readerThread.start();
-        writerThread.start();
     }
 
     /**
@@ -168,7 +171,6 @@ public class Client extends Application {
                         .map(node -> (HBox) node)
                         .findFirst()
                         .ifPresent(hBox -> Platform.runLater(() -> updateHBoxContents(hBox, auctionItem)));
-                System.out.println(auctionItem.bidHistory);
                 break;
             case "updateItemTime":
                 clientVBox.getChildren().stream()
@@ -180,15 +182,25 @@ public class Client extends Application {
         }
     }
 
-    private static void updateTime(HBox hBox, Item auctionItem) {
-        setLabelValue(hBox, "#timeRemainingLabelValue", Item.displayTime(auctionItem.timeRemaining) + " remaining");
-    }
-
     private static void updateHBoxContents(HBox hBox, Item auctionItem) {
         setLabelValue(hBox, "#currentItemPriceLabel", String.format("Current Bid: $%.2f", auctionItem.currentBid));
         setLabelValue(hBox, "#totalBidsLabel", String.format("%d Bid%s", auctionItem.totalBids, auctionItem.totalBids == 1 ? "" : "s"));
         setButtonAction(hBox, "#placeBidButton", event -> openBidStage(auctionItem));
         setButtonAction(hBox, "#buyNowButton", event -> openConfirmStage(auctionItem));
+    }
+
+    private static void updateTime(HBox hBox, Item auctionItem) {
+        Label timeLabel = (Label) hBox.lookup("#timeRemainingLabel");
+        if (timeLabel != null) {
+            if (auctionItem.timeRemaining < 600)
+                timeLabel.setTextFill(Color.RED);
+            if (auctionItem.timeRemaining > 0) {
+                timeLabel.setText(Item.displayTime(auctionItem.timeRemaining) + " remaining");
+            } else if (auctionItem.timeRemaining < 0 && !auctionItem.sold) {
+                timeLabel.setText("Ended");
+                sendToServer(new Message("itemEnded", auctionItem));
+            }
+        }
     }
 
     private static void setLabelValue(HBox hBox, String labelId, String text) {
@@ -234,20 +246,12 @@ public class Client extends Application {
             item.buyer = username;
             item.soldPrice = item.buyNowPrice;
             Message sendMessage = new Message("buyNow", item);
-            try {
-                sendToServer(sendMessage);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            sendToServer(sendMessage);
         } else {
             item.currentBidder = username;
             item.currentBid = bidAmount;
             Message sendMessage = new Message("updateBid", item);
-            try {
-                sendToServer(sendMessage);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            sendToServer(sendMessage);
         }
     }
 

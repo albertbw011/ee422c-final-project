@@ -4,14 +4,12 @@ import javafx.animation.Timeline;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.scene.image.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.*;
 import java.io.IOException;
 import java.io.Serializable;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 public class Item implements Serializable {
@@ -28,27 +26,8 @@ public class Item implements Serializable {
     int totalBids;
     List<BidInstance> bidHistory;
     boolean sold;
-    Image image;
     boolean displayed;
-    boolean hasItemEnded;
     transient Timeline timeline = new Timeline();
-
-
-    public Item(String name, String description, String imagePath, double minBid, double buyNow, int time) {
-        this.name = name;
-        this.currentBidder = null;
-        this.description = description;
-        this.startingBid = minBid;
-        this.buyNowPrice = buyNow;
-        this.timeRemaining = time;
-        this.currentBid = (startingBid > 0) ? startingBid : 0;
-        this.bidHistory = new ArrayList<>();
-        this.totalBids = 0;
-        this.sold = false;
-        this.image = new Image(imagePath);
-        this.displayed = false;
-        this.hasItemEnded = false;
-    }
 
     public HBox display() {
         HBox hBox = new HBox();
@@ -56,7 +35,6 @@ public class Item implements Serializable {
         VBox descriptionBox = new VBox(5);
         VBox rightBox = new VBox(5);
         rightBox.setAlignment(Pos.CENTER);
-        ImageView imageView = new ImageView(image);
 
         // Item Name
         Label itemName = new Label(name);
@@ -71,9 +49,14 @@ public class Item implements Serializable {
         }
 
         // Current Bid
-        Label currentItemPriceLabel = new Label(String.format("Current Price: $%.2f", currentBid));
-        currentItemPriceLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 18));
+        Label currentItemPriceLabel = new Label();
         currentItemPriceLabel.setId("currentItemPriceLabel");
+        currentItemPriceLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 18));
+        if (bidHistory.isEmpty())
+            currentItemPriceLabel.setText(String.format("Current Price: $%.2f", startingBid));
+        else
+            currentItemPriceLabel.setText(String.format("Current Bid: $%.2f", currentBid));
+
 
         // Buy Now Price
         Label buyNowLabel = new Label(String.format("Buy Now: $%.2f", buyNowPrice));
@@ -85,24 +68,6 @@ public class Item implements Serializable {
         timeRemainingLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         timeRemainingLabel.setTextFill((timeRemaining < 600) ? Color.RED : Color.BLACK);
         timeRemainingLabel.setId("timeRemainingLabel");
-        timeline = new Timeline();
-        timeline.getKeyFrames().add(new KeyFrame(Duration.seconds(1.0), event -> {
-            if (timeRemaining > 0) {
-                timeRemainingLabel.setText(displayTime(timeRemaining) + " remaining");
-            } else {
-                timeline.stop();
-                if (!timeRemainingLabel.getText().equals("Ended")) {
-                    Message send = new Message("itemEnded", this);
-                    try {
-                        Client.sendToServer(send);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-        }));
-        timeline.setCycleCount(Animation.INDEFINITE);
-        timeline.play();
 
         // Description
         Label descriptionLabel = new Label("About this item: " + ((description != null) ? description : ""));
@@ -146,11 +111,19 @@ public class Item implements Serializable {
         bidHistoryButton.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         bidHistoryButton.setStyle("-fx-background-color: #a8a8a8; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 10 20;");
         bidHistoryButton.setOnAction(event -> {
+            Stage newStage = new Stage();
             Client.buttonSound.play();
+            try {
+                newStage.setScene(Client.bidHistoryScene(newStage, this));
+                newStage.show();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
         bidHistoryButton.setOnMouseEntered(event -> bidHistoryButton.setStyle("-fx-background-color: #c7c7c7; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 10 20; -fx-cursor: hand;"));
         bidHistoryButton.setOnMouseExited(event -> bidHistoryButton.setStyle("-fx-background-color: #a8a8a8; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 10 20;"));
 
+        totalBids = bidHistory.size();
         Label totalBidsLabel = new Label(String.format("%d Bid%s", totalBids, totalBids == 1 ? "" : "s"));
         totalBidsLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 15));
         totalBidsLabel.setUnderline(true);
@@ -167,7 +140,7 @@ public class Item implements Serializable {
             leftBox.getChildren().addAll(itemName, soldLabel, timeRemainingLabel);
             rightBox.getChildren().addAll(bidHistoryButton, totalBidsLabel);
         }
-        hBox.getChildren().addAll(imageView, leftBox, descriptionBox, rightBox);
+        hBox.getChildren().addAll(leftBox, descriptionBox, rightBox);
         hBox.setStyle("-fx-border-color: #f2f2f2; -fx-padding: 10");
         this.displayed = true;
         hBox.setId(this.name);
@@ -186,10 +159,6 @@ public class Item implements Serializable {
         if (minutes > 0) timeDisplay.append(minutes < 10 ? String.format("%dm ", minutes) : String.format("%02dm ", minutes));
         if (seconds > 0) timeDisplay.append(seconds < 10 ? String.format("%ds", seconds) : String.format("%02ds", seconds));
         return timeDisplay.toString();
-    }
-
-    private void decrementTimeRemaining() {
-        timeRemaining--;
     }
 
     public void addBidInstance(String bidder, double bidPrice, int timeRemaining, boolean purchased) {
@@ -217,8 +186,17 @@ public class Item implements Serializable {
         }
 
         public HBox display() {
-            HBox Hbox = new HBox();
-            return Hbox;
+            HBox container = new HBox(20);
+            container.setStyle("-fx-border-color: #bfbfbf; -fx-padding: 10");
+
+            Label bidderLabel = new Label("Bidder: " + bidder);
+            bidderLabel.setTextFill(Color.GRAY);
+
+            Label priceLabel = new Label(String.format("Bid Amount: $%.2f", bidPrice));
+            priceLabel.setTextFill(Color.GRAY);
+
+            container.getChildren().addAll(bidderLabel, priceLabel);
+            return container;
         }
 
         @Override

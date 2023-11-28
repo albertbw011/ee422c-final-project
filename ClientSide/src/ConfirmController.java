@@ -31,7 +31,7 @@ public class ConfirmController extends Client {
 
     @FXML
     private void yesButtonAction() {
-        item.addBidInstance(item.buyer, item.buyNowPrice, item.timeRemaining, true);
+        item.addBidInstance(username, item.buyNowPrice, item.timeRemaining, true);
         sendBid(item.buyNowPrice, item);
         stage.close();
     }

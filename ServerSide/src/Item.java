@@ -19,35 +19,28 @@ public class Item implements Serializable {
     int totalBids;
     List<BidInstance> bidHistory;
     boolean sold;
-    Image image;
 
-    // constructor without image
-    public Item(String name, String description, double minBid, double buyNow, int time) {
+    // constructor with current bid and bidHistory
+    public Item(String name, String description, double minBid, double buyNow, int time, Double currentBid, List<BidInstance> bidHistory) {
         this.name = name;
         this.currentBidder = null;
         this.description = description;
         this.startingBid = minBid;
         this.buyNowPrice = buyNow;
         this.timeRemaining = time;
-        this.currentBid = (startingBid > 0) ? startingBid : 0;
-        bidHistory = new ArrayList<>();
-        totalBids = 0;
-        sold = false;
-    }
-
-    // constructor with image
-    public Item(String name, String description, String imagePath, double minBid, double buyNow, int time) {
-        this.name = name;
-        this.currentBidder = null;
-        this.description = description;
-        this.startingBid = minBid;
-        this.buyNowPrice = buyNow;
-        this.timeRemaining = time;
-        this.currentBid = (startingBid > 0) ? startingBid : 0;
-        bidHistory = new ArrayList<>();
-        totalBids = 0;
-        sold = false;
-        this.image = new Image(imagePath);
+        this.currentBid = currentBid != null ? currentBid : startingBid;
+        this.bidHistory = bidHistory != null ? bidHistory : new ArrayList<>();
+        this.totalBids = bidHistory != null ? bidHistory.size() : 0;
+        if (!this.bidHistory.isEmpty()) {
+            BidInstance mostRecent = this.bidHistory.get(this.bidHistory.size()-1);
+            if (mostRecent.purchased || timeRemaining < 0) {
+                this.sold = true;
+                this.currentBid = mostRecent.bidPrice;
+                this.buyer = mostRecent.bidder;
+                this.soldPrice = mostRecent.bidPrice;
+                this.timeRemaining = 0;
+            }
+        }
     }
 
     public static String displayTime(int time) {
@@ -85,9 +78,16 @@ public class Item implements Serializable {
             this.purchased = purchased;
         }
 
-        public static BidInstance fromDocument(Document doc) {
-            return new BidInstance(doc.getString("bidder"), doc.getInteger("bidPrice"),
-                    doc.getInteger("timeRemaining"), doc.getBoolean("purchased"));
+        public static List<BidInstance> fromDocument(Document doc) {
+            List<BidInstance> bidInstances = new ArrayList<>();
+            List<Document> bidDocs = doc.getList("bidHistory", Document.class);
+            if (bidDocs != null) {
+                for (Document bidDoc : bidDocs) {
+                    bidInstances.add(new BidInstance(bidDoc.getString("bidder"), bidDoc.getDouble("bidPrice"),
+                            bidDoc.getInteger("timeRemaining"), bidDoc.getBoolean("purchased")));
+                }
+            }
+            return bidInstances;
         }
         @Override
         public String toString() {
