@@ -12,7 +12,6 @@
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
-
 <HBox xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="LogInController">
    <children>
       <VBox alignment="TOP_CENTER" maxHeight="800.0" maxWidth="800.0" minHeight="800.0" minWidth="800.0" prefHeight="800.0" prefWidth="800.0" style="-fx-background-image: url(&quot;this-minimalist-landscape-features-a-single-mountain-peak-against-a-gradient-sky-zrfb9w71.jpeg&quot;);">
@@ -87,6 +86,14 @@
                      <cursor>
                         <Cursor fx:constant="OPEN_HAND" />
                      </cursor>
+                     <HBox.margin>
+                        <Insets right="10.0" />
+                     </HBox.margin>
+                  </Button>
+                  <Button fx:id="registerButton" mnemonicParsing="false" onAction="#registerButtonAction" onMouseEntered="#registerButtonMouseHover" onMouseExited="#registerButtonMouseExit" style="-fx-background-color: white; -fx-border-color: black; -fx-border-radius: 5;" text="Register">
+                     <font>
+                        <Font name="Segoe UI Bold" size="15.0" />
+                     </font>
                   </Button>
                </children>
                <padding>

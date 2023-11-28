@@ -17,13 +17,11 @@ import java.util.*;
 import javafx.scene.media.AudioClip;
 
 public class Client extends Application {
+    private Stage primaryStage;
     private static ObjectInputStream inputStream;
     private static ObjectOutputStream outputStream;
-    private static Socket socket;
-    private static List<CustomerInstance> customerHistory;
     private static List<Item> auctionItemList;
     protected static String username;
-    private static FXMLLoader auctionLoader;
     protected static LogInController logInController;
     protected static ClientController clientController;
     protected static BidController bidController;
@@ -36,12 +34,13 @@ public class Client extends Application {
     }
 
     public void start(Stage primaryStage) {
-        customerHistory = new ArrayList<>();
         auctionItemList = new ArrayList<>();
         buttonSound = new AudioClip(Objects.requireNonNull(Client.class.getResource("ui-click-97915.mp3")).toExternalForm());
         loginSound = new AudioClip(Objects.requireNonNull(Client.class.getResource("button-pressed-38129.mp3")).toExternalForm());
+        this.primaryStage = primaryStage;
         try {
             primaryStage.setScene(loginScene(primaryStage));
+            readFromServer();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -49,25 +48,23 @@ public class Client extends Application {
     }
 
     public static Scene loginScene(Stage primaryStage) throws IOException {
-        if (socket != null && !socket.isClosed())
-            socket.close();
         primaryStage.setTitle("Login to eHills");
         primaryStage.setResizable(false);
         FXMLLoader loginLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Login.fxml")));
         Parent loginParent = loginLoader.load();
         logInController = loginLoader.getController();
         logInController.setPrimaryStage(primaryStage);
+        setUpConnection();
         return new Scene(loginParent, 1300, 800);
     }
 
     public static Scene auctionScene(Stage primaryStage) throws IOException {
         primaryStage.setTitle("eHills");
         primaryStage.setResizable(true);
-        auctionLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Auction.fxml")));
+        FXMLLoader auctionLoader = new FXMLLoader(Objects.requireNonNull(Client.class.getResource("Auction.fxml")));
         Parent auctionParent = auctionLoader.load();
         clientController = auctionLoader.getController();
         clientController.setPrimaryStage(primaryStage);
-        setUpConnection();
         return new Scene(auctionParent, 1600, 900);
     }
 
@@ -94,17 +91,14 @@ public class Client extends Application {
         bidHistoryController = bidHistoryLoader.getController();
         bidHistoryController.setItem(item);
         bidHistoryController.setStage(primaryStage);
-        return new Scene(bidHistoryParent, 400, item.bidHistory.size()*50);
+        return new Scene(bidHistoryParent, 400, item.bidHistory.size()*45);
     }
 
-    public static void setUpConnection() {
-        try {
-            socket = new Socket("localhost", 4444);
-            outputStream = new ObjectOutputStream(socket.getOutputStream());
-            inputStream = new ObjectInputStream(socket.getInputStream());
-        } catch (IOException e) {
-            System.out.println("Unable to connect");
-        }
+    public static void setUpConnection() throws IOException {
+        Socket socket = new Socket("localhost", 4444);
+        outputStream = new ObjectOutputStream(socket.getOutputStream());
+        inputStream = new ObjectInputStream(socket.getInputStream());
+        System.out.println("Connected to server");
     }
 
     protected static void sendToServer(Message input) {
@@ -142,15 +136,48 @@ public class Client extends Application {
      */
     private synchronized void processRequest(Message input) {
         String command = input.getCommand();
-        Item auctionItem = Objects.requireNonNull(input.getAuctionItem());
-        auctionItem.totalBids = auctionItem.bidHistory.size();
-        ClientController controller = auctionLoader.getController();
-        VBox clientVBox = controller.getItemListPaneVBox();
+        Item auctionItem = input.getAuctionItem() != null ? input.getAuctionItem() : new Item();
+        auctionItem.totalBids = auctionItem.bidHistory != null ? auctionItem.bidHistory.size() : 0;
+        if (auctionItem.totalBids > 0) {
+            auctionItem.currentBidder = auctionItem.bidHistory.get(auctionItem.totalBids - 1).bidder;
+            auctionItem.currentBid = auctionItem.bidHistory.get(auctionItem.totalBids - 1).bidPrice;
+        }
+        VBox clientVBox = clientController != null ? clientController.getItemListPaneVBox() : new VBox();
+        VBox notiBox = clientController != null ? clientController.getNotificationVBox() : new VBox();
+        Label errorLabel = logInController != null ? logInController.getErrorLabel(): new Label();
         switch (command) {
+            case "invalidPassword":
+                Platform.runLater(() -> errorLabel.setText("Incorrect username or password"));
+                break;
+            case "userDNE":
+                Platform.runLater(() -> errorLabel.setText("Account does not exist"));
+                break;
+            case "validInput":
+                Platform.runLater(() -> {
+                    try {
+                        loginSound.play();
+                        primaryStage.setScene(auctionScene(primaryStage));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+                break;
             case "addItem":
                 auctionItemList.add(auctionItem);
                 break;
             case "itemPurchased":
+                clientVBox.getChildren().stream()
+                        .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
+                        .map(node -> (HBox) node)
+                        .findFirst().ifPresent(hBox -> Platform.runLater(() -> {
+                            clientVBox.getChildren().remove(hBox);
+                            clientVBox.getChildren().add(auctionItem.display());
+                            setLabelValue(auctionItem.display(), "#totalBidsLabel",
+                                    String.format("%d Bid%s", auctionItem.totalBids, auctionItem.totalBids == 1 ? "" : "s"));
+                            notiBox.getChildren().add(new Notification(auctionItem.currentBidder, auctionItem.currentBid,
+                                    auctionItem, Notification.TYPE.PURCHASE).display());
+                        }));
+                break;
             case "itemEnded":
                 // removes the item and adds it to the end without bid/buy buttons
                 // indicates its ended and/or sold
@@ -162,6 +189,11 @@ public class Client extends Application {
                             clientVBox.getChildren().add(auctionItem.display());
                             setLabelValue(auctionItem.display(), "#totalBidsLabel",
                                     String.format("%d Bid%s", auctionItem.totalBids, auctionItem.totalBids == 1 ? "" : "s"));
+                            if (auctionItem.totalBids == 0)
+                                notiBox.getChildren().add(new Notification(auctionItem).display());
+                            else
+                                notiBox.getChildren().add(new Notification(auctionItem.currentBidder, auctionItem.currentBid,
+                                            auctionItem, Notification.TYPE.END).display());
                         }));
                 break;
             case "updateItemBid":
@@ -170,7 +202,11 @@ public class Client extends Application {
                         .filter(node -> node instanceof HBox && auctionItem.name.equals(node.getId()))
                         .map(node -> (HBox) node)
                         .findFirst()
-                        .ifPresent(hBox -> Platform.runLater(() -> updateHBoxContents(hBox, auctionItem)));
+                        .ifPresent(hBox -> Platform.runLater(() -> {
+                            updateHBoxContents(hBox, auctionItem);
+                            notiBox.getChildren().add(new Notification(auctionItem.currentBidder, auctionItem.currentBid,
+                                    auctionItem.timeRemaining, auctionItem).display());
+                        }));
                 break;
             case "updateItemTime":
                 clientVBox.getChildren().stream()
@@ -196,7 +232,7 @@ public class Client extends Application {
                 timeLabel.setTextFill(Color.RED);
             if (auctionItem.timeRemaining > 0) {
                 timeLabel.setText(Item.displayTime(auctionItem.timeRemaining) + " remaining");
-            } else if (auctionItem.timeRemaining < 0 && !auctionItem.sold) {
+            } else if (auctionItem.timeRemaining < 0 && !auctionItem.sold && !timeLabel.getText().equals("Ended")) {
                 timeLabel.setText("Ended");
                 sendToServer(new Message("itemEnded", auctionItem));
             }
@@ -257,18 +293,5 @@ public class Client extends Application {
 
     public static List<Item> getAuctionItemList() {
         return auctionItemList;
-    }
-
-    static class CustomerInstance {
-        String itemName;
-        double bidPrice;
-        boolean inProgress;
-        boolean purchased;
-        public CustomerInstance(String itemName, double bidPrice, boolean inProgress, boolean purchased) {
-            this.itemName = itemName;
-            this.bidPrice = bidPrice;
-            this.inProgress = inProgress;
-            this.purchased = purchased;
-        }
     }
 }

@@ -24,6 +24,10 @@ public class ClientController extends Client implements Initializable {
     private Button exitButton;
     @FXML
     private Text title;
+    @FXML
+    private VBox notificationVBox;
+    @FXML
+    private ScrollPane notiScrollPane;
 
     public ClientController() {}
 
@@ -35,11 +39,14 @@ public class ClientController extends Client implements Initializable {
         return itemListPaneVBox;
     }
 
+    public VBox getNotificationVBox() { return notificationVBox; }
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         System.out.println("Auction FXML Initialization called");
         title.setText("Welcome to eHills, " + username + "!");
         itemListPane.setContent(itemListPaneVBox);
+        notiScrollPane.setContent(notificationVBox);
         Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(0.2), this::updateTimer));
         timeline.setCycleCount(Timeline.INDEFINITE);
         timeline.play();

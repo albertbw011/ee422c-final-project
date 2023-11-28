@@ -51,6 +51,10 @@ public class BidController extends Client {
         }
     }
 
+    private void setBidAmounts() {
+
+    }
+
     @FXML
     public void bidButton1Action() {
         Client.buttonSound.play();

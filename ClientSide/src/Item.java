@@ -1,15 +1,14 @@
-import javafx.animation.Animation;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.*;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Stage;
 import java.io.IOException;
 import java.io.Serializable;
-import javafx.stage.Stage;
-import javafx.util.Duration;
 import java.util.List;
 
 public class Item implements Serializable {
@@ -27,13 +26,12 @@ public class Item implements Serializable {
     List<BidInstance> bidHistory;
     boolean sold;
     boolean displayed;
-    transient Timeline timeline = new Timeline();
 
     public HBox display() {
         HBox hBox = new HBox();
-        VBox leftBox = new VBox(5);
-        VBox descriptionBox = new VBox(5);
-        VBox rightBox = new VBox(5);
+        VBox leftBox = new VBox();
+        VBox descriptionBox = new VBox();
+        VBox rightBox = new VBox();
         rightBox.setAlignment(Pos.CENTER);
 
         // Item Name
@@ -44,7 +42,7 @@ public class Item implements Serializable {
         Label soldLabel = new Label();
         if (buyer != null) {
             soldLabel.setText((String.format("Purchased by %s at $%.2f", buyer, soldPrice)));
-            soldLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+            soldLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 17));
             soldLabel.setTextFill(Color.RED);
         }
 
@@ -63,7 +61,7 @@ public class Item implements Serializable {
         buyNowLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 18));
 
         // Time Remaining in hh:mm:ss
-        Label timeRemainingLabel = (timeRemaining > 0) ? new Label(displayTime(timeRemaining) + " remaining")
+        Label timeRemainingLabel = ((timeRemaining > 0) && !sold) ? new Label(displayTime(timeRemaining) + " remaining")
                 : new Label("Ended");
         timeRemainingLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         timeRemainingLabel.setTextFill((timeRemaining < 600) ? Color.RED : Color.BLACK);
@@ -114,8 +112,10 @@ public class Item implements Serializable {
             Stage newStage = new Stage();
             Client.buttonSound.play();
             try {
-                newStage.setScene(Client.bidHistoryScene(newStage, this));
-                newStage.show();
+                if (!bidHistory.isEmpty()) {
+                    newStage.setScene(Client.bidHistoryScene(newStage, this));
+                    newStage.show();
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -130,9 +130,9 @@ public class Item implements Serializable {
         totalBidsLabel.setId("totalBidsLabel");
 
         // Combine all the containers together
-        leftBox.setPrefWidth(400);
-        rightBox.setPrefWidth(400);
-        descriptionBox.setPrefWidth(600);
+        leftBox.setPrefWidth(450);
+        rightBox.setPrefWidth(250);
+        descriptionBox.setPrefWidth(500);
         if (!this.sold && this.timeRemaining > 0) {
             leftBox.getChildren().addAll(itemName, currentItemPriceLabel, buyNowLabel, timeRemainingLabel);
             rightBox.getChildren().addAll(placeBidButton, buyNowButton, bidHistoryButton, totalBidsLabel);
@@ -154,7 +154,7 @@ public class Item implements Serializable {
         int seconds = time % 60;
 
         StringBuilder timeDisplay = new StringBuilder();
-        if (days > 0) timeDisplay.append(days < 10 ? String.format("%dd ", days) : String.format("%02dd ", hours));
+        if (days > 0) timeDisplay.append(days < 10 ? String.format("%dd ", days) : String.format("%02dd ", days));
         if (hours > 0) timeDisplay.append(hours < 10 ? String.format("%dh ", hours) : String.format("%02dh ", hours));
         if (minutes > 0) timeDisplay.append(minutes < 10 ? String.format("%dm ", minutes) : String.format("%02dm ", minutes));
         if (seconds > 0) timeDisplay.append(seconds < 10 ? String.format("%ds", seconds) : String.format("%02ds", seconds));
@@ -162,9 +162,7 @@ public class Item implements Serializable {
     }
 
     public void addBidInstance(String bidder, double bidPrice, int timeRemaining, boolean purchased) {
-        synchronized (this) {
-            bidHistory.add(new BidInstance(bidder, bidPrice, timeRemaining, purchased));
-        }
+        bidHistory.add(new BidInstance(bidder, bidPrice, timeRemaining, purchased));
     }
 
     @Override
@@ -190,10 +188,10 @@ public class Item implements Serializable {
             container.setStyle("-fx-border-color: #bfbfbf; -fx-padding: 10");
 
             Label bidderLabel = new Label("Bidder: " + bidder);
-            bidderLabel.setTextFill(Color.GRAY);
+            bidderLabel.setTextFill(Color.DARKGRAY);
 
             Label priceLabel = new Label(String.format("Bid Amount: $%.2f", bidPrice));
-            priceLabel.setTextFill(Color.GRAY);
+            priceLabel.setTextFill(Color.DARKGRAY);
 
             container.getChildren().addAll(bidderLabel, priceLabel);
             return container;

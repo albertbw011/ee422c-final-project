@@ -19,12 +19,16 @@ public class LogInController extends Client {
     private Button loginButton;
     @FXML
     private Button loginGuestButton;
+    @FXML
+    private Button registerButton;
     private static String password;
-
-    public LogInController() {}
 
     public void setPrimaryStage(Stage s) {
         primaryStage = s;
+    }
+
+    public Label getErrorLabel() {
+        return errorLabel;
     }
 
     @FXML
@@ -39,13 +43,7 @@ public class LogInController extends Client {
             errorLabel.setText("Please enter a username");
             passwordTextField.clear();
         } else {
-            try {
-                loginSound.play();
-                primaryStage.setScene(auctionScene(primaryStage));
-                readFromServer();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            sendToServer(new Message("checkCustomer", new Customer(username, password)));
         }
     }
 
@@ -60,6 +58,11 @@ public class LogInController extends Client {
     }
 
     @FXML
+    public void registerButtonMouseHover() {
+        registerButton.setStyle("-fx-background-color: #b5b5b5; -fx-border-color: BLACK; -fx-border-radius: 5; -fx-background-radius: 5; -fx-cursor: hand");
+    }
+
+    @FXML
     public void loginButtonMouseExit() {
         loginButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
     }
@@ -67,6 +70,11 @@ public class LogInController extends Client {
     @FXML
     public void guestButtonMouseExit() {
         loginGuestButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
+    }
+
+    @FXML
+    public void registerButtonMouseExit() {
+        registerButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
     }
 
     @FXML
@@ -80,12 +88,27 @@ public class LogInController extends Client {
             try {
                 loginSound.play();
                 primaryStage.setScene(auctionScene(primaryStage));
-                readFromServer();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
+    @FXML
+    public void registerButtonAction() {
+        username = usernameTextField.getText();
+        password = passwordTextField.getText();
 
+        if (username.isEmpty() || password.isEmpty()) {
+            errorLabel.setText("Please enter a username and password to register");
+        } else {
+            try {
+                sendToServer(new Message("addCustomer", new Customer(username, password)));
+                loginSound.play();
+                primaryStage.setScene(auctionScene(primaryStage));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }

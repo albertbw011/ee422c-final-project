@@ -7,6 +7,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Observable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -17,12 +19,10 @@ import static com.mongodb.client.model.Updates.set;
 
 public class Server extends Observable {
     private ServerSocket serverSocket;
-    private List<ClientThread> clients;
     private List<Item> auctionItemList;
-    private MongoClient mongoClient;
-    private MongoDatabase database;
-    private ConnectionString connectionString;
+    private Map<String, String> customerList;
     private MongoCollection<Document> items;
+    private MongoCollection<Document> customers;
     protected boolean update;
     public static void main(String[] args) {
         new Server().startServer();
@@ -31,8 +31,10 @@ public class Server extends Observable {
     private void startServer() {
         try {
             auctionItemList = new ArrayList<>();
+            customerList = new HashMap<>();
             setUpDB();
             retrieveAuctionItems();
+            retrieveCustomerInfo();
             ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
             ex.scheduleAtFixedRate(() -> {
                 this.updateAuctionItemList();
@@ -60,16 +62,22 @@ public class Server extends Observable {
     }
 
     private void setUpDB() {
-        connectionString = new ConnectionString("mongodb+srv://albertbw011:Albert447@auction.gmnwonc.mongodb.net/?retryWrites=true&w=majority");
-        mongoClient = MongoClients.create(connectionString);
+        ConnectionString connectionString = new ConnectionString("mongodb+srv://albertbw011:Albert447@auction.gmnwonc.mongodb.net/?retryWrites=true&w=majority");
+        MongoClient mongoClient = MongoClients.create(connectionString);
             try {
                 // Send a ping to confirm a successful connection
-                database = mongoClient.getDatabase("AuctionItems");
+                MongoDatabase database = mongoClient.getDatabase("AuctionItems");
                 items = database.getCollection("Items");
+                customers = database.getCollection("Customers");
                 System.out.println("Pinged your deployment. You successfully connected to MongoDB!");
             } catch (MongoException e) {
                 e.printStackTrace();
             }
+    }
+
+    private void retrieveCustomerInfo() {
+        for (Document customer : customers.find())
+            customerList.put(customer.getString("username"), customer.getString("password"));
     }
 
     public void retrieveAuctionItems() {
@@ -105,7 +113,7 @@ public class Server extends Observable {
     }
 
     private void acceptClients() {
-        clients = new ArrayList<>();
+        List<ClientThread> clients = new ArrayList<>();
         try {
             while(true) {
                 this.updateAuctionItemList();
@@ -125,11 +133,27 @@ public class Server extends Observable {
     public synchronized void processRequest(Message request) {
         String command = request.command;
         Item auctionItem = request.auctionItem;
-        List<Item.BidInstance> bidHistory = auctionItem.bidHistory;
+        List<Item.BidInstance> bidHistory = auctionItem != null ? auctionItem.bidHistory : new ArrayList<>();
         Message sendMessage = new Message("");
         switch (command) {
+            case "checkCustomer":
+                if (request.customer != null) {
+                    Customer customer = request.customer;
+                    if (customerList.containsKey(customer.getUsername()) && !customerList.get(customer.getUsername()).equals(customer.getPassword()))
+                        sendMessage = new Message("invalidPassword");
+                    else if (!customerList.containsKey(customer.getUsername()))
+                        sendMessage = new Message("userDNE");
+                    else
+                        sendMessage = new Message("validInput");
+                }
+                break;
+            case "addCustomer":
+                if (request.customer != null)
+                    addCustomer(request.customer);
+                break;
             case "buyNow":
                 auctionItem.timeRemaining = 0;
+                auctionItem.sold = true;
                 sendMessage = new Message("itemPurchased", auctionItem);
                 updateDocument("sold", auctionItem, true);
                 updateDocument("buyer", auctionItem, auctionItem.buyer);
@@ -166,6 +190,11 @@ public class Server extends Observable {
                 .append("timeRemaining", bidInstance.timeRemaining)
                 .append("purchased", bidInstance.purchased);
         items.updateOne(eq("name", item.name), push("bidHistory", doc));
+    }
+
+    public void addCustomer(Customer customer) {
+        Document doc = new Document().append("username", customer.getUsername()).append("password", customer.getPassword());
+        customers.insertOne(doc);
     }
 
     private List<Item.BidInstance> retrieveItemBidHistoryFromDB(String name) {
