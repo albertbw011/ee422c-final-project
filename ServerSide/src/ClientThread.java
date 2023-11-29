@@ -22,10 +22,7 @@ public class ClientThread implements Runnable, Observer {
     public void run() {
         try {
             System.out.println("ClientThread running");
-            for (Item item : auctionItemList) {
-                Message send = new Message("addItem", item);
-                sendToClient(send);
-            }
+            server.updateAuctionItemList();
             while (!socket.isClosed()) {
                 if (server.update) {
                     for (Item item : auctionItemList) {
@@ -35,14 +32,22 @@ public class ClientThread implements Runnable, Observer {
                     server.update = false;
                 }
                 Message receivedMessage = (Message) inputStream.readUnshared();
-                server.processRequest(receivedMessage);
+                if (receivedMessage.command.equals("close")) {
+                    try {
+                        disconnect();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    server.processRequest(receivedMessage);
+                }
             }
         } catch (ClassNotFoundException | IOException e ) {
             e.printStackTrace();
         }
     }
 
-    public void sendToClient(Message m) {
+    public synchronized void sendToClient(Message m) {
         try {
             if (!m.command.equals("updateItemTime"))
                 System.out.println("Sending to client: " + m);
@@ -57,5 +62,10 @@ public class ClientThread implements Runnable, Observer {
     @Override
     public void update(Observable o, Object arg) {
         this.sendToClient((Message) arg);
+    }
+
+    private void disconnect() throws IOException {
+        this.socket.close();
+        server.removeObserver(this);
     }
 }

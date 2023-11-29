@@ -26,23 +26,11 @@ public class Message implements Serializable {
         this.number = 0;
     }
 
-    protected Message(String command, Item auctionItem, double number) {
-        this.command = command;
-        this.auctionItem = auctionItem;
-        this.number = number;
-    }
-
     public String getCommand() {
         return command;
     }
 
     public Item getAuctionItem() {
         return auctionItem;
-    }
-
-    public Customer getCustomer() { return customer; }
-
-    public double getNumber() {
-        return number;
     }
 }

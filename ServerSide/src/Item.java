@@ -38,7 +38,6 @@ public class Item implements Serializable {
                 this.currentBid = mostRecent.bidPrice;
                 this.buyer = mostRecent.bidder;
                 this.soldPrice = mostRecent.bidPrice;
-                this.timeRemaining = 0;
             }
         }
     }

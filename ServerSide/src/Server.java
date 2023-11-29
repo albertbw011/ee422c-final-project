@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import static com.mongodb.client.model.Updates.push;
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Updates.set;
+import org.mindrot.jbcrypt.BCrypt;
 
 public class Server extends Observable {
     private ServerSocket serverSocket;
@@ -39,17 +40,21 @@ public class Server extends Observable {
             ex.scheduleAtFixedRate(() -> {
                 this.updateAuctionItemList();
                 for (Item i : auctionItemList) {
-                    if (i.timeRemaining > -2) {
-                        i.decrementTimeRemaining();
-                        updateDocument("timeRemaining", i, i.getTimeRemaining());
-                        Message sendMessage = new Message("updateItemTime", i);
-                        this.setChanged();
-                        this.notifyObservers(sendMessage);
+                    i.decrementTimeRemaining();
+                    updateDocument("timeRemaining", i, i.getTimeRemaining());
+                    Message sendMessage = new Message("");
+                    if (i.timeRemaining < -600) {
+                        removeItem(i);
+                        sendMessage = new Message("removeItem", i);
+                    } else {
+                        sendMessage = new Message("updateItemTime", i);
                     }
+                    this.setChanged();
+                    this.notifyObservers(sendMessage);
                 }
                 System.out.println("updated database");
                 update = true;
-            }, 1, 1, TimeUnit.SECONDS);
+            }, 0, 1, TimeUnit.SECONDS);
             setUpNetworking();
         } catch (Exception e) {
             e.printStackTrace();
@@ -62,7 +67,7 @@ public class Server extends Observable {
     }
 
     private void setUpDB() {
-        ConnectionString connectionString = new ConnectionString("mongodb+srv://albertbw011:Albert447@auction.gmnwonc.mongodb.net/?retryWrites=true&w=majority");
+            ConnectionString connectionString = new ConnectionString("mongodb+srv://albertbw011:Albert447@auction.gmnwonc.mongodb.net/?retryWrites=true&w=majority");
         MongoClient mongoClient = MongoClients.create(connectionString);
             try {
                 // Send a ping to confirm a successful connection
@@ -77,7 +82,7 @@ public class Server extends Observable {
 
     private void retrieveCustomerInfo() {
         for (Document customer : customers.find())
-            customerList.put(customer.getString("username"), customer.getString("password"));
+            customerList.put(customer.getString("username"), BCrypt.hashpw(customer.getString("password"), BCrypt.gensalt()));
     }
 
     public void retrieveAuctionItems() {
@@ -113,17 +118,14 @@ public class Server extends Observable {
     }
 
     private void acceptClients() {
-        List<ClientThread> clients = new ArrayList<>();
         try {
             while(true) {
-                this.updateAuctionItemList();
                 Socket clientSocket = serverSocket.accept();
                 ClientThread client = new ClientThread(this, clientSocket);
                 System.out.println("Connecting to..." + clientSocket);
                 Thread thread = new Thread(client);
                 this.addObserver(client);
                 thread.start();
-                clients.add(client);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -138,8 +140,8 @@ public class Server extends Observable {
         switch (command) {
             case "checkCustomer":
                 if (request.customer != null) {
-                    Customer customer = request.customer;
-                    if (customerList.containsKey(customer.getUsername()) && !customerList.get(customer.getUsername()).equals(customer.getPassword()))
+                    Customer customer = new Customer(request.customer.getUsername(), BCrypt.hashpw(request.customer.getPassword(), BCrypt.gensalt()));
+                    if (customerList.containsKey(customer.getUsername()) && getCustomerHash(customer))
                         sendMessage = new Message("invalidPassword");
                     else if (!customerList.containsKey(customer.getUsername()))
                         sendMessage = new Message("userDNE");
@@ -147,36 +149,79 @@ public class Server extends Observable {
                         sendMessage = new Message("validInput");
                 }
                 break;
+            case "checkGuest":
+                if (request.customer != null) {
+                    if (customerList.containsKey(request.customer.getUsername()))
+                        sendMessage = new Message("usernameExists");
+                    else
+                        sendMessage = new Message("validInput");
+                }
+                break;
             case "addCustomer":
-                if (request.customer != null)
-                    addCustomer(request.customer);
+                if (request.customer != null) {
+                    if (!customerList.containsKey(request.customer.getUsername())) {
+                        addCustomer(new Customer(request.customer.getUsername(), BCrypt.hashpw(request.customer.getPassword(), BCrypt.gensalt())));
+                        retrieveCustomerInfo();
+                        sendMessage = new Message("validInput");
+                    } else
+                        sendMessage = new Message("userExists");
+                }
                 break;
             case "buyNow":
-                auctionItem.timeRemaining = 0;
-                auctionItem.sold = true;
-                sendMessage = new Message("itemPurchased", auctionItem);
-                updateDocument("sold", auctionItem, true);
-                updateDocument("buyer", auctionItem, auctionItem.buyer);
-                updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size()-1));
+                if (auctionItem != null) {
+                    auctionItem.timeRemaining = 0;
+                    auctionItem.sold = true;
+                    sendMessage = new Message("itemPurchased", auctionItem);
+                    updateDocument("sold", auctionItem, true);
+                    updateDocument("buyer", auctionItem, auctionItem.buyer);
+                    updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size() - 1));
+                }
                 break;
             case "updateBid":
-                sendMessage = new Message("updateItemBid", auctionItem);
-                updateDocument("currentBid", auctionItem, auctionItem.currentBid);
-                updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size()-1));
+                if (auctionItem != null) {
+                    sendMessage = new Message("updateItemBid", auctionItem);
+                    updateDocument("currentBid", auctionItem, auctionItem.currentBid);
+                    updateDocumentBidHistory(auctionItem, bidHistory.get(bidHistory.size() - 1));
+                }
                 break;
             case "itemEnded":
-                if (!auctionItem.bidHistory.isEmpty()) {
-                    auctionItem.buyer = bidHistory.get(bidHistory.size() - 1).bidder;
-                    auctionItem.soldPrice = bidHistory.get(bidHistory.size() - 1).bidPrice;
+                if (auctionItem != null) {
+                    if (!auctionItem.bidHistory.isEmpty()) {
+                        auctionItem.buyer = bidHistory.get(bidHistory.size() - 1).bidder;
+                        auctionItem.soldPrice = bidHistory.get(bidHistory.size() - 1).bidPrice;
+                    }
+                    if (!auctionItem.sold) {
+                        auctionItem.sold = true;
+                        sendMessage = new Message("itemEnded", auctionItem);
+                    }
                 }
-                if (!auctionItem.sold) {
-                    auctionItem.sold = true;
-                    sendMessage = new Message("itemEnded", auctionItem);
+                break;
+            case "readyForItems":
+                for (Item item : auctionItemList) {
+                    Message send = new Message("addItem", item);
+                    this.setChanged();
+                    this.notifyObservers(send);
+                }
+                break;
+            case "addItem":
+                if (auctionItem != null) {
+                    addItem(auctionItem);
+                    sendMessage = new Message("addItem", auctionItem);
+                    update = true;
                 }
                 break;
         }
         this.setChanged();
         this.notifyObservers(sendMessage);
+    }
+
+    private boolean getCustomerHash(Customer customer) {
+        String username = customer.getUsername();
+        for (String user : customerList.keySet()) {
+            if (user.equals(username))
+                return customer.getPassword().equals(customerList.get(user));
+        }
+        return false;
     }
 
     public void updateDocument(String field, Item item, Object updatedValue) {
@@ -197,6 +242,21 @@ public class Server extends Observable {
         customers.insertOne(doc);
     }
 
+    public void addItem(Item item) {
+        auctionItemList.add(item);
+        Document doc = new Document().append("name", item.name).
+                append("description", item.description).
+                append("startingBid", item.startingBid).
+                append("buyNowPrice", item.buyNowPrice).
+                append("timeRemaining", item.timeRemaining);
+        items.insertOne(doc);
+    }
+
+    private void removeItem(Item item) {
+        items.deleteOne(new Document("name", item.name));
+        auctionItemList.remove(auctionItemList.get(returnIndex(item.name)));
+    }
+
     private List<Item.BidInstance> retrieveItemBidHistoryFromDB(String name) {
         for (Document d : items.find()) {
             if (d.getString("name").equals(name))
@@ -207,5 +267,9 @@ public class Server extends Observable {
 
     public List<Item> getAuctionItemList() {
         return auctionItemList;
+    }
+
+    public void removeObserver(ClientThread observer) {
+        deleteObserver(observer);
     }
 }

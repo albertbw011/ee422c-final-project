@@ -58,16 +58,16 @@ public class Notification {
         Label notiLabel = new Label();
         switch (type) {
             case BID:
-                notiLabel.setText(bidder + " has bid on " + item.name + " for $" + price);
+                notiLabel.setText(String.format("%s has bid on %s for $%.2f", bidder, item.name, price));
                 break;
             case END:
                 if (!purchase)
-                    notiLabel.setText(item.name + " auction has ended with no winning bid");
+                    notiLabel.setText(String.format("%s auction has ended with no winning bid", item.name));
                 else
-                    notiLabel.setText(bidder + " has won the auction for " + item.name + " at $" + price);
+                    notiLabel.setText(String.format("%s has won the auction for %s at $%.2f", bidder, item.name, price));
                 break;
             case PURCHASE:
-                notiLabel.setText(bidder + " has bought " + item.name + " for $" + price);
+                notiLabel.setText(String.format("%s has bought %s for $%.2f", bidder, item.name, price));
         }
 
         notiLabel.setPadding(new Insets(5, 5, 5, 5));

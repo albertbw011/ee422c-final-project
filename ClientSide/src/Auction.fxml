@@ -18,7 +18,18 @@
                <font>
                   <Font name="Segoe UI Bold" size="30.0" />
                </font>
+               <HBox.margin>
+                  <Insets right="20.0" />
+               </HBox.margin>
             </Text>
+            <Button fx:id="sellItemButton" mnemonicParsing="false" onAction="#sellItemAction" onMouseEntered="#sellItemMouseHover" onMouseExited="#sellItemMouseExit" style="-fx-background-color: white; -fx-border-color: black; -fx-border-radius: 5;" text="Sell Item">
+               <HBox.margin>
+                  <Insets top="4.0" />
+               </HBox.margin>
+               <font>
+                  <Font name="Segoe UI Bold" size="15.0" />
+               </font>
+            </Button>
          </children>
       </HBox>
       <HBox maxHeight="800.0" maxWidth="1600.0" prefHeight="800.0" prefWidth="1600.0">

@@ -59,7 +59,7 @@
             <Region layoutX="25.0" layoutY="188.0" prefHeight="14.0" prefWidth="420.0" />
             <HBox prefHeight="44.0" prefWidth="420.0">
                <children>
-                  <Button fx:id="loginButton" mnemonicParsing="false" onAction="#loginButtonAction" onMouseEntered="#loginButtonMouseHover" onMouseExited="#loginButtonMouseExit" style="-fx-background-color: WHITE; -fx-border-radius: 5; -fx-border-color: BLACK;" text="Login" textAlignment="CENTER">
+                  <Button fx:id="loginButton" mnemonicParsing="false" onAction="#loginButtonAction" onMouseEntered="#loginButtonMouseHover" onMouseExited="#loginButtonMouseExit" style="-fx-background-color: WHITE; -fx-border-radius: 10; -fx-border-color: BLACK;" text="Login" textAlignment="CENTER">
                      <HBox.margin>
                         <Insets right="10.0" />
                      </HBox.margin>
@@ -76,7 +76,7 @@
                         <Cursor fx:constant="OPEN_HAND" />
                      </cursor>
                   </Button>
-                  <Button fx:id="loginGuestButton" mnemonicParsing="false" onAction="#guestButtonAction" onMouseEntered="#guestButtonMouseHover" onMouseExited="#guestButtonMouseExit" style="-fx-background-color: WHITE; -fx-border-radius: 5; -fx-border-color: BLACK;" text="Continue as Guest" textAlignment="CENTER">
+                  <Button fx:id="loginGuestButton" mnemonicParsing="false" onAction="#guestButtonAction" onMouseEntered="#guestButtonMouseHover" onMouseExited="#guestButtonMouseExit" style="-fx-background-color: WHITE; -fx-border-radius: 10; -fx-border-color: BLACK;" text="Continue as Guest" textAlignment="CENTER">
                      <padding>
                         <Insets bottom="5.0" left="15.0" right="15.0" top="5.0" />
                      </padding>
@@ -90,7 +90,7 @@
                         <Insets right="10.0" />
                      </HBox.margin>
                   </Button>
-                  <Button fx:id="registerButton" mnemonicParsing="false" onAction="#registerButtonAction" onMouseEntered="#registerButtonMouseHover" onMouseExited="#registerButtonMouseExit" style="-fx-background-color: white; -fx-border-color: black; -fx-border-radius: 5;" text="Register">
+                  <Button fx:id="registerButton" mnemonicParsing="false" onAction="#registerButtonAction" onMouseEntered="#registerButtonMouseHover" onMouseExited="#registerButtonMouseExit" style="-fx-background-color: white; -fx-border-color: black; -fx-border-radius: 10;" text="Register">
                      <font>
                         <Font name="Segoe UI Bold" size="15.0" />
                      </font>

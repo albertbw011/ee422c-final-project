@@ -41,9 +41,7 @@ public class BidController extends Client {
     private void initializeWithItem() {
         if (item != null) {
             currentPriceLabel.setText(String.format("$ %.2f", item.currentBid));
-            bidAmount1 = (int) (Math.min(Math.floor(item.currentBid + 1), item.buyNowPrice));
-            bidAmount2 = (int) (Math.min(Math.floor(item.currentBid * 1.02), item.buyNowPrice));
-            bidAmount3 = (int) (Math.min(Math.floor(item.currentBid * 1.05), item.buyNowPrice));
+            setBidAmounts();
             bidButton1.setText("Bid $" + bidAmount1);
             bidButton2.setText("Bid $" + bidAmount2);
             bidButton3.setText("Bid $" + bidAmount3);
@@ -52,7 +50,9 @@ public class BidController extends Client {
     }
 
     private void setBidAmounts() {
-
+        bidAmount1 = (int) (Math.min(Math.floor(item.currentBid + 1), item.buyNowPrice));
+        bidAmount2 = (int) (Math.min(Math.round(item.currentBid + 5), item.buyNowPrice));
+        bidAmount3 = (int) (Math.min(Math.round(item.currentBid + 10), item.buyNowPrice));
     }
 
     @FXML

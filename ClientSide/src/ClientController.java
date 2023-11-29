@@ -1,16 +1,13 @@
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.util.Duration;
 
 public class ClientController extends Client implements Initializable {
     private Stage primaryStage;
@@ -28,8 +25,8 @@ public class ClientController extends Client implements Initializable {
     private VBox notificationVBox;
     @FXML
     private ScrollPane notiScrollPane;
-
-    public ClientController() {}
+    @FXML
+    private Button sellItemButton;
 
     public void setPrimaryStage(Stage s) {
         primaryStage = s;
@@ -47,16 +44,6 @@ public class ClientController extends Client implements Initializable {
         title.setText("Welcome to eHills, " + username + "!");
         itemListPane.setContent(itemListPaneVBox);
         notiScrollPane.setContent(notificationVBox);
-        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(0.2), this::updateTimer));
-        timeline.setCycleCount(Timeline.INDEFINITE);
-        timeline.play();
-    }
-
-    private void updateTimer(ActionEvent event) {
-        for (Item i : Client.getAuctionItemList()) {
-            if (!i.displayed)
-                itemListPaneVBox.getChildren().add(i.display());
-        }
     }
 
     @FXML
@@ -64,8 +51,6 @@ public class ClientController extends Client implements Initializable {
         try {
             buttonSound.play();
             primaryStage.setScene(Client.loginScene(primaryStage));
-            for (Item i : getAuctionItemList())
-                i.displayed = false;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -85,6 +70,7 @@ public class ClientController extends Client implements Initializable {
     public void quitAction() {
         buttonSound.play();
         primaryStage.close();
+        sendToServer(new Message("close"));
         System.exit(0);
     }
 
@@ -96,5 +82,28 @@ public class ClientController extends Client implements Initializable {
     @FXML
     public void exitButtonMouseExit() {
         exitButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
+    }
+
+    @FXML
+    public void sellItemAction() {
+        try {
+            Stage newStage = new Stage();
+            buttonSound.play();
+            AddItemController.setStage(newStage);
+            newStage.setScene(Client.addItemScene(newStage));
+            newStage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    public void sellItemMouseHover() {
+        sellItemButton.setStyle("-fx-background-color: #b5b5b5; -fx-border-color: BLACK; -fx-border-radius: 5; -fx-cursor: hand");
+    }
+
+    @FXML
+    public void sellItemMouseExit() {
+        sellItemButton.setStyle("-fx-background-color: WHITE; -fx-border-color: BLACK; -fx-border-radius: 5");
     }
 }

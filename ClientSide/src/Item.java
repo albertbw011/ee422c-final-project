@@ -9,6 +9,7 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Item implements Serializable {
@@ -27,11 +28,23 @@ public class Item implements Serializable {
     boolean sold;
     boolean displayed;
 
+    public Item(String name, String description, double minBid, double buyNow, int time) {
+        this.name = name;
+        this.currentBidder = null;
+        this.description = description;
+        this.startingBid = minBid;
+        this.buyNowPrice = buyNow;
+        this.timeRemaining = time;
+        this.currentBid = startingBid;
+        this.bidHistory = new ArrayList<>();
+        this.totalBids = 0;
+    }
+
     public HBox display() {
         HBox hBox = new HBox();
         VBox leftBox = new VBox();
         VBox descriptionBox = new VBox();
-        VBox rightBox = new VBox();
+        VBox rightBox = new VBox(5);
         rightBox.setAlignment(Pos.CENTER);
 
         // Item Name
@@ -50,7 +63,7 @@ public class Item implements Serializable {
         Label currentItemPriceLabel = new Label();
         currentItemPriceLabel.setId("currentItemPriceLabel");
         currentItemPriceLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 18));
-        if (bidHistory.isEmpty())
+        if (bidHistory == null || bidHistory.isEmpty())
             currentItemPriceLabel.setText(String.format("Current Price: $%.2f", startingBid));
         else
             currentItemPriceLabel.setText(String.format("Current Bid: $%.2f", currentBid));
@@ -123,16 +136,16 @@ public class Item implements Serializable {
         bidHistoryButton.setOnMouseEntered(event -> bidHistoryButton.setStyle("-fx-background-color: #c7c7c7; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 10 20; -fx-cursor: hand;"));
         bidHistoryButton.setOnMouseExited(event -> bidHistoryButton.setStyle("-fx-background-color: #a8a8a8; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 10 20;"));
 
-        totalBids = bidHistory.size();
+        totalBids = bidHistory != null ? bidHistory.size() : 0;
         Label totalBidsLabel = new Label(String.format("%d Bid%s", totalBids, totalBids == 1 ? "" : "s"));
         totalBidsLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 15));
         totalBidsLabel.setUnderline(true);
         totalBidsLabel.setId("totalBidsLabel");
 
         // Combine all the containers together
-        leftBox.setPrefWidth(450);
-        rightBox.setPrefWidth(250);
-        descriptionBox.setPrefWidth(500);
+        leftBox.setPrefWidth(400);
+        rightBox.setPrefWidth(200);
+        descriptionBox.setPrefWidth(600);
         if (!this.sold && this.timeRemaining > 0) {
             leftBox.getChildren().addAll(itemName, currentItemPriceLabel, buyNowLabel, timeRemainingLabel);
             rightBox.getChildren().addAll(placeBidButton, buyNowButton, bidHistoryButton, totalBidsLabel);
@@ -142,7 +155,6 @@ public class Item implements Serializable {
         }
         hBox.getChildren().addAll(leftBox, descriptionBox, rightBox);
         hBox.setStyle("-fx-border-color: #f2f2f2; -fx-padding: 10");
-        this.displayed = true;
         hBox.setId(this.name);
         return hBox;
     }

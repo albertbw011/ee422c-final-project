@@ -10,7 +10,6 @@ public class ConfirmController extends Client {
     @FXML
     private Button noButton;
 
-    public ConfirmController() {}
 
     public static void setStage(Stage s) {
         stage = s;
