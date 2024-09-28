@@ -191,7 +191,7 @@ public class Client extends Application {
                     processRequest(input);
                 }
             } catch (ClassNotFoundException | IOException e) {
-                //e.printStackTrace();
+                e.printStackTrace();
             }
         });
         readerThread.start();
